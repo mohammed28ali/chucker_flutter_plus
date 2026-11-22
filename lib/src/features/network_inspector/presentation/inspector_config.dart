@@ -3,6 +3,7 @@ import 'inspector_settings.dart';
 /// Notification and capture options for [Inspector.init].
 class InspectorConfig {
   const InspectorConfig({
+    this.enableOnRelease = false,
     this.showInAppNotification = true,
     this.showStatusBarNotification = true,
     this.statusBarWhileForeground = false,
@@ -11,6 +12,7 @@ class InspectorConfig {
     this.notifyOnlyOnError = false,
     this.maximumEntries = 100,
   });
+  final bool enableOnRelease;
   final bool showInAppNotification;
   final bool showStatusBarNotification;
   final bool statusBarWhileForeground;
@@ -20,6 +22,7 @@ class InspectorConfig {
   final int maximumEntries;
 
   InspectorConfig copyWith({
+    bool? enableOnRelease,
     bool? showInAppNotification,
     bool? showStatusBarNotification,
     bool? statusBarWhileForeground,
@@ -28,6 +31,7 @@ class InspectorConfig {
     bool? notifyOnlyOnError,
     int? maximumEntries,
   }) => InspectorConfig(
+    enableOnRelease: enableOnRelease ?? this.enableOnRelease,
     showInAppNotification: showInAppNotification ?? this.showInAppNotification,
     showStatusBarNotification:
         showStatusBarNotification ?? this.showStatusBarNotification,

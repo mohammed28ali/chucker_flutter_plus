@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'log_redactor.dart';
 import 'network_log_models.dart';
@@ -25,7 +26,9 @@ class NetworkLogger {
   final LogRedactor redactor;
   // ignore: avoid_print
   static void _defaultPrinter(String message) => print(message);
-  bool get _enabled => config.enabled || config.forceLogging;
+  bool get _enabled =>
+      config.forceLogging ||
+      (config.enabled && (kDebugMode || config.enableOnRelease));
 
   void logRequest(NetworkRequestLog request) => _safe(() {
     if (!_enabled || request.loggingDisabled || !config.logRequests) return;

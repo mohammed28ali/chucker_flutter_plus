@@ -64,6 +64,7 @@ class NetworkLogConfig {
     this.logCurlCommand = true,
     this.enabled = true,
     this.forceLogging = false,
+    this.enableOnRelease = false,
     this.maxBodyLength = 4000,
     this.slowRequestThreshold = const Duration(seconds: 10),
     this.sensitiveHeaders = const {
@@ -92,7 +93,8 @@ class NetworkLogConfig {
       logErrorBody,
       logCurlCommand,
       enabled,
-      forceLogging;
+      forceLogging,
+      enableOnRelease;
   final int maxBodyLength;
   final Duration slowRequestThreshold;
   final Set<String> sensitiveHeaders, sensitiveJsonKeys;

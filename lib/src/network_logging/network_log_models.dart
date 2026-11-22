@@ -90,6 +90,7 @@ class NetworkLogConfig {
   const NetworkLogConfig({
     this.enabled = kDebugMode,
     this.forceLogging = false,
+    this.enableOnRelease = false,
     this.logRequests = true,
     this.logResponses = true,
     this.logErrors = true,
@@ -124,6 +125,7 @@ class NetworkLogConfig {
   }) : assert(maxBodyLength >= 0);
   final bool enabled;
   final bool forceLogging;
+  final bool enableOnRelease;
   final bool logRequests;
   final bool logResponses;
   final bool logErrors;

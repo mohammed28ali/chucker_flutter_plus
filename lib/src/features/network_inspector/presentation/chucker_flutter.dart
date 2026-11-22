@@ -88,9 +88,7 @@ class ChuckerFlutterPlus {
         },
         onUnrecognizedPayload: onUnrecognizedNotificationPayload,
       );
-      await _notifications!.initialize(
-        channelName: notificationChannelName,
-      );
+      await _notifications!.initialize(channelName: notificationChannelName);
     }
   }
 
@@ -263,6 +261,7 @@ class Inspector {
   }) async {
     await ChuckerFlutterPlus.initialize(
       maximumEntries: config.maximumEntries,
+      enableOnRelease: config.enableOnRelease,
       enableNotifications: config.showStatusBarNotification,
       navigatorKey: navigatorKey,
       onUnrecognizedNotificationPayload: onUnrecognizedNotificationPayload,
@@ -290,7 +289,10 @@ class Inspector {
       ),
     );
     ChuckerFlutterPlus.showNotification = config.showStatusBarNotification;
-    ChuckerFlutterPlus.configure(maximumEntries: config.maximumEntries);
+    ChuckerFlutterPlus.configure(
+      maximumEntries: config.maximumEntries,
+      enableOnRelease: config.enableOnRelease,
+    );
   }
 
   static Future<void> clearLogs() => ChuckerFlutterPlus.clearLogs();

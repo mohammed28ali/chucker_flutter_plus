@@ -131,7 +131,8 @@ request.
 
 `NetworkLogger` is independent from inspector capture. Create one instance and
 share it across your network clients. Logging is enabled in debug builds by
-default; use `forceLogging: true` to enable it in release builds.
+default. Use `enableOnRelease: true` to enable it in release builds, or
+`forceLogging: true` to override both the build mode and `enabled: false`.
 
 ```dart
 import 'package:flutter/foundation.dart';
@@ -139,6 +140,7 @@ import 'package:chucker_flutter_plus/network_logger.dart';
 
 final logger = NetworkLogger(
   config: const NetworkLogConfig(
+    enableOnRelease: true,
     logRequestHeaders: true,
     logRequestBody: true,
     logResponseHeaders: true,

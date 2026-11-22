@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'log_redactor.dart';
 import 'network_log_models.dart';
@@ -25,8 +26,7 @@ class NetworkLogger {
 
   bool get _active =>
       config.forceLogging ||
-      (config.enabled &&
-          const bool.fromEnvironment('dart.vm.product') == false);
+      (config.enabled && (kDebugMode || config.enableOnRelease));
 
   void logRequest(NetworkRequestLog request) => _safe(() {
     if (!_active || !request.enabled) return;
