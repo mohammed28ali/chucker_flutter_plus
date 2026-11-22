@@ -19,10 +19,10 @@ environment:
   flutter: ">=3.0.0"
 
 dependencies:
-  flutter:
-    sdk: flutter
-
   dio: ^5.11.1
+=======
+  dio: ^5.9.0
+>>>>>>> Stashed changes
   chopper: ^8.7.0
   flutter_local_notifications: ^23.0.2
   hive_ce: ^2.23.3
