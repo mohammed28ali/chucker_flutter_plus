@@ -261,7 +261,7 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
             context.pushNamed(Routes.settings);
           } else if (v == 'export') {
             final json = await ChuckerFlutterPlus.exportLogs();
-            await SharePlus.instance.share(ShareParams(text: json));
+            await Share.share(json);
           } else if (v == 'clear') {
             await _clearAll();
           }

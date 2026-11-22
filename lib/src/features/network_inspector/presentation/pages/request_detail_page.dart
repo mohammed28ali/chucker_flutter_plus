@@ -155,7 +155,7 @@ class _RequestDetailPageState extends State<RequestDetailPage>
   }
 
   void _shareCurl(NetworkTransaction t) async {
-    await SharePlus.instance.share(ShareParams(text: _buildCurl(t)));
+    await Share.share(_buildCurl(t));
   }
 
   void _onAction(String action, NetworkTransaction t) async {
@@ -181,7 +181,7 @@ class _RequestDetailPageState extends State<RequestDetailPage>
           'requestBody': t.rawRequestBody,
           'responseBody': t.rawResponseBody,
         });
-        await SharePlus.instance.share(ShareParams(text: json));
+        await Share.share(json);
     }
   }
 

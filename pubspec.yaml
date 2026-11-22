@@ -16,7 +16,7 @@ topics:
 
 environment:
   sdk: ^3.13.2
-  flutter: ">=3.0.0"
+  flutter: ">=3.27.0"
 
 dependencies:
   flutter:
@@ -26,9 +26,9 @@ dependencies:
   flutter_local_notifications: ^23.0.3
   hive_ce: ^2.24.0
   hive_ce_flutter: ^2.6.0
+  path_provider: ^2.0.10
   http: ^1.6.0
   share_plus: ^13.3.1
-  fluttertoast: ^10.0.3
 
 dev_dependencies:
   flutter_test:

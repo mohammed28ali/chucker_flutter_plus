@@ -18,13 +18,15 @@ class ChuckerNotificationService {
   int _ok = 0;
   int _failed = 0;
 
-  Future<void> initialize({
-    String channelName = 'Network inspector',
-  }) async {
+  Future<void> initialize({String channelName = 'Network inspector'}) async {
     await _plugin.initialize(
-      settings: InitializationSettings(
+    settings:  const InitializationSettings(
         android: AndroidInitializationSettings(notificationIcon),
         iOS: const DarwinInitializationSettings(),
+        macOS: const DarwinInitializationSettings(),
+        linux: const LinuxInitializationSettings(
+          defaultActionName: 'Open inspector',
+        ),
       ),
       onDidReceiveNotificationResponse: (response) => _route(response.payload),
     );
@@ -47,10 +49,10 @@ class ChuckerNotificationService {
     transaction.succeeded ? _ok++ : _failed++;
     final text = '$_count requests: $_ok OK, $_failed failed';
     await _plugin.show(
-      id: 7101,
-      title: 'Network activity',
-      body: text,
-      notificationDetails: NotificationDetails(
+    id: 7101,
+  title:  'Network activity',
+  body:text,
+    notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           channelName,
@@ -60,6 +62,8 @@ class ChuckerNotificationService {
           priority: Priority.low,
         ),
         iOS: const DarwinNotificationDetails(),
+        macOS: const DarwinNotificationDetails(),
+        linux: const LinuxNotificationDetails(),
       ),
       payload: 'chucker:${transaction.id}',
     );

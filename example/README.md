@@ -13,6 +13,15 @@ flutter pub get
 flutter run
 ```
 
+To run on desktop, generate native runner projects once from this directory:
+
+```sh
+flutter create --platforms=linux,macos,windows .
+flutter run -d linux  # or macos / windows
+```
+
+Linux builds require Flutter's GTK 3 development dependencies.
+
 Tap a request card to generate traffic, then open the inspector from the app
 bar, hero card, or floating action button. Captured data stays in the app's
 local inspector history. This demo uses the public JSONPlaceholder API, so an

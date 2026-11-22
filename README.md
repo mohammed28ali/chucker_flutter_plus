@@ -62,6 +62,14 @@ final response = await client.get(Uri.parse('https://example.com/items'));
 `ChuckerHttpClient` buffers each response before returning it so the inspector
 can save the response body, then returns the response bytes to the caller.
 
+The inspector, local history, request capture, and console logger support
+Android, iOS, Linux, macOS, and Windows. The package has no native plugin
+implementation of its own. For Flutter apps, generate the desired desktop
+runners with `flutter create --platforms=linux,macos,windows .` from the app
+directory. On Linux, install the GTK 3 development packages required by Flutter.
+Package support requires Flutter 3.27 or later due to the Hive and sharing
+dependencies.
+
 ### Open the inspector
 
 Add the built-in button to a widget:
@@ -123,9 +131,10 @@ permission during initialization:
 ```
 
 Android notifications use the package's fixed Chucker notification icon. iOS
-uses the app icon and requests notification permission during initialization.
-Tapping a Chucker system notification opens the inspector at the matching
-request.
+and macOS use the app icon and request notification permission during
+initialization. Linux and Windows use their desktop notification services.
+Notification tap routing is available on Android and Apple platforms; desktop
+notification services may not return tap events to Flutter.
 
 ## Console logging
 
