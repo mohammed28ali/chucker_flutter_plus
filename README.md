@@ -7,6 +7,8 @@ a bounded local history, and opens an in-app screen where you can inspect
 requests and responses. It also includes an optional console `NetworkLogger`
 that can be shared by Dio, Chopper, and `package:http`.
 
+![Chucker Flutter Plus banner](assets/images/chucker_flutter_plus_banner.png)
+
 ## Install
 
 Add the package to your app:
