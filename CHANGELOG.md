@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+
+- Added the in-app HTTP inspector with bounded request history, banners, and optional system notifications.
+- Added request capture for Dio and `package:http`.
+- Added the shared `NetworkLogger` with Dio, Chopper, and HTTP adapters.
+- Added configurable redaction, retention, filtering, export, and request detail tools.
+
 ## 0.1.0
 
 - Added Dio and `package:http` adapters for capturing requests and responses.
