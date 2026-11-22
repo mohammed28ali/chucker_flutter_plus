@@ -95,7 +95,6 @@ the app is in the background:
 ```dart
 await ChuckerFlutterPlus.initialize(
   enableNotifications: true,
-  notificationIcon: '@mipmap/ic_launcher',
 );
 ```
 
@@ -123,12 +122,10 @@ permission during initialization:
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
-The default Android small icon is `@mipmap/ic_launcher`. For a custom status
-bar icon, add a white-on-transparent drawable to the host app's Android
-resources and pass its resource name with `notificationIcon` or
-`InspectorConfig.statusBarIcon`. iOS uses the app icon and requests notification
-permission during initialization. Tapping a Chucker system notification opens
-the inspector at the matching request.
+Android notifications use the package's fixed Chucker notification icon. iOS
+uses the app icon and requests notification permission during initialization.
+Tapping a Chucker system notification opens the inspector at the matching
+request.
 
 ## Console logging
 

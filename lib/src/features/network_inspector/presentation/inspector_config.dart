@@ -9,7 +9,6 @@ class InspectorConfig {
     this.inAppNotificationDuration = const Duration(seconds: 3),
     this.inAppNotificationPosition = BannerPosition.top,
     this.notifyOnlyOnError = false,
-    this.statusBarIcon = '@mipmap/ic_launcher',
     this.maximumEntries = 100,
   });
   final bool showInAppNotification;
@@ -18,7 +17,6 @@ class InspectorConfig {
   final Duration inAppNotificationDuration;
   final BannerPosition inAppNotificationPosition;
   final bool notifyOnlyOnError;
-  final String statusBarIcon;
   final int maximumEntries;
 
   InspectorConfig copyWith({
@@ -28,7 +26,6 @@ class InspectorConfig {
     Duration? inAppNotificationDuration,
     BannerPosition? inAppNotificationPosition,
     bool? notifyOnlyOnError,
-    String? statusBarIcon,
     int? maximumEntries,
   }) => InspectorConfig(
     showInAppNotification: showInAppNotification ?? this.showInAppNotification,
@@ -41,7 +38,6 @@ class InspectorConfig {
     inAppNotificationPosition:
         inAppNotificationPosition ?? this.inAppNotificationPosition,
     notifyOnlyOnError: notifyOnlyOnError ?? this.notifyOnlyOnError,
-    statusBarIcon: statusBarIcon ?? this.statusBarIcon,
     maximumEntries: maximumEntries ?? this.maximumEntries,
   );
 }

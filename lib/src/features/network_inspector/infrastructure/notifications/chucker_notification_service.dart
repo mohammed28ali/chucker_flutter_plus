@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../domain/entities/network_transaction.dart';
 
 class ChuckerNotificationService {
+  static const notificationIcon = '@drawable/chucker_icon';
   ChuckerNotificationService({
     this.onRequestSelected,
     this.onUnrecognizedPayload,
@@ -19,11 +20,10 @@ class ChuckerNotificationService {
 
   Future<void> initialize({
     String channelName = 'Network inspector',
-    String icon = '@mipmap/ic_launcher',
   }) async {
     await _plugin.initialize(
       settings: InitializationSettings(
-        android: AndroidInitializationSettings(icon),
+        android: AndroidInitializationSettings(notificationIcon),
         iOS: const DarwinInitializationSettings(),
       ),
       onDidReceiveNotificationResponse: (response) => _route(response.payload),

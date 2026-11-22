@@ -20,7 +20,6 @@ Future<void> main() async {
     maximumEntries: 200,
     retention: const Duration(days: 7),
     enableNotifications: true,
-    notificationIcon: '@drawable/chucker_icon',
     redactHeaders: {'authorization', 'cookie', 'set-cookie', 'x-api-key'},
   );
   runApp(ChuckerExampleApp(repository: _createPostsRepository()));
