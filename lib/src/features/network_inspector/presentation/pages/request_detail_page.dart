@@ -638,10 +638,7 @@ class _ErrorTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              KeyValueRow(
-                label: AppStrings.labelType,
-                value: t.error ?? '—',
-              ),
+              KeyValueRow(label: AppStrings.labelType, value: t.error ?? '—'),
               if (t.stackTrace != null) ...[
                 const KeyValueDivider(),
                 Padding(
@@ -697,6 +694,8 @@ class _MediaTab extends StatelessWidget {
     final t = transaction;
     final ct = t.contentType?.toLowerCase() ?? '';
     final isImage = ct.startsWith('image/');
+    final isVideo = ct.startsWith('video/');
+    final previewBytes = isImage ? _decodeMediaBytes(t.rawResponseBody) : null;
 
     return ListView(
       padding: const EdgeInsets.all(AppSizes.paddingLg),
@@ -724,33 +723,25 @@ class _MediaTab extends StatelessWidget {
             ],
           ),
         ),
-        if (isImage && t.rawResponseBody != null) ...[
+        if (isImage || isVideo) ...[
           const SizedBox(height: AppSizes.gap12),
           SectionCard(
             title: AppStrings.labelPreview,
             child: Padding(
               padding: const EdgeInsets.all(AppSizes.paddingLg),
-              child: Builder(
-                builder: (context) {
-                  try {
-                    final bytes = base64Decode(t.rawResponseBody!);
-                    return GestureDetector(
-                      onTap: () => _showFullImage(context, bytes),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppSizes.radius8),
-                        child: Image.memory(
-                          bytes,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const _MediaPlaceholder(),
-                        ),
-                      ),
-                    );
-                  } catch (_) {
-                    return const _MediaPlaceholder();
-                  }
-                },
-              ),
+              child: isImage
+                  ? _ImageMediaPreview(
+                      bytes: previewBytes,
+                      onTap: previewBytes == null
+                          ? null
+                          : () => _showFullImage(context, previewBytes),
+                    )
+                  : _VideoMediaPreview(
+                      contentType: t.contentType ?? 'video/unknown',
+                      size: _sizeStr(t.responseBodySize),
+                      bodyRetained: t.rawResponseBody != null,
+                      truncated: t.responseBodyTruncated,
+                    ),
             ),
           ),
         ],
@@ -770,6 +761,90 @@ class _MediaTab extends StatelessWidget {
       : bytes < 1024 * 1024
       ? '${(bytes / 1024).toStringAsFixed(1)} KB'
       : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+List<int>? _decodeMediaBytes(String? body) {
+  if (body == null || body.isEmpty) return null;
+  try {
+    final comma = body.startsWith('data:') ? body.indexOf(',') : -1;
+    return base64Decode(comma >= 0 ? body.substring(comma + 1) : body);
+  } on FormatException {
+    return null;
+  }
+}
+
+class _ImageMediaPreview extends StatelessWidget {
+  const _ImageMediaPreview({required this.bytes, required this.onTap});
+  final List<int>? bytes;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (bytes == null) return const _MediaPlaceholder();
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppSizes.radius8),
+        child: Image.memory(
+          Uint8List.fromList(bytes!),
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              const _MediaPlaceholder(),
+        ),
+      ),
+    );
+  }
+}
+
+class _VideoMediaPreview extends StatelessWidget {
+  const _VideoMediaPreview({
+    required this.contentType,
+    required this.size,
+    required this.bodyRetained,
+    required this.truncated,
+  });
+
+  final String contentType;
+  final String size;
+  final bool bodyRetained;
+  final bool truncated;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 200),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppSizes.radius8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.movie_outlined,
+            size: 64,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(height: AppSizes.gap8),
+          Text(contentType, style: theme.textTheme.titleSmall),
+          const SizedBox(height: AppSizes.gap4),
+          Text('Response size: $size'),
+          const SizedBox(height: AppSizes.gap8),
+          Text(
+            truncated || !bodyRetained
+                ? 'Video body was not retained. The response size is shown above.'
+                : 'Video response captured. Inline playback is not available.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MediaPlaceholder extends StatelessWidget {

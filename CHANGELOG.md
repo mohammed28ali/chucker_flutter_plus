@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5
+
+- Added Linux, macOS, and Windows desktop support and example runner setup.
+- Added image previews and video response details to the media tab.
+- Bounded retained media previews by the configured body size limit.
+
 ## 1.0.4
 
 - Improved package analysis compatibility and documented the 1.0.3 release.

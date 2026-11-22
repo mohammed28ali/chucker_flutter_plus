@@ -62,12 +62,13 @@ class NetworkTransactionLocalDataSource {
   }
 
   NetworkTransactionModel _truncate(NetworkTransactionModel value) {
-    if ((value.contentType?.startsWith('image/') ?? false) ||
-        (value.contentType?.startsWith('video/') ?? false)) {
+    final contentType = value.contentType?.toLowerCase() ?? '';
+    if (contentType.startsWith('image/') || contentType.startsWith('video/')) {
+      final media = _capMedia(value.rawResponseBody);
       return NetworkTransactionModel.fromJson({
         ...value.toJson(),
-        'rawResponseBody': null,
-        'responseBodyTruncated': true,
+        'rawResponseBody': media.$1,
+        'responseBodyTruncated': value.responseBodyTruncated || media.$2,
       });
     }
     final request = _cap(value.rawRequestBody);
@@ -79,6 +80,21 @@ class NetworkTransactionLocalDataSource {
       'requestBodyTruncated': request.$2,
       'responseBodyTruncated': response.$2,
     });
+  }
+
+  (String?, bool) _capMedia(String? value) {
+    if (value == null) return (null, false);
+    try {
+      final encoded = value.startsWith('data:')
+          ? value.substring(value.indexOf(',') + 1)
+          : value;
+      final bytes = base64Decode(encoded);
+      if (bytes.length <= maximumBodyBytes) return (value, false);
+    } on FormatException {
+      // Preserve non-base64 media bodies only when their stored form is small.
+      if (utf8.encode(value).length <= maximumBodyBytes) return (value, false);
+    }
+    return (null, true);
   }
 
   (String?, bool) _cap(String? value) {

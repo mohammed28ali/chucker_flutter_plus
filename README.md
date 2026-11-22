@@ -63,12 +63,18 @@ final response = await client.get(Uri.parse('https://example.com/items'));
 can save the response body, then returns the response bytes to the caller.
 
 The inspector, local history, request capture, and console logger support
-Android, iOS, Linux, macOS, and Windows. The package has no native plugin
-implementation of its own. For Flutter apps, generate the desired desktop
-runners with `flutter create --platforms=linux,macos,windows .` from the app
-directory. On Linux, install the GTK 3 development packages required by Flutter.
-Package support requires Flutter 3.27 or later due to the Hive and sharing
-dependencies.
+Android, iOS, Linux, macOS, and Windows. The package requires Flutter 3.44 or
+later. It has no native implementation of its own; desktop support uses the
+Flutter and dependency plugins.
+
+To enable desktop builds in an app, generate its runners from the app directory:
+
+```sh
+flutter create --platforms=linux,macos,windows .
+```
+
+Build each target on its supported host platform. Linux builds also require the
+GTK 3 development packages listed in Flutter's Linux setup guide.
 
 ### Open the inspector
 
@@ -93,6 +99,16 @@ provides methods to clear history and export it as JSON:
 await ChuckerFlutterPlus.clearLogs();
 final json = await ChuckerFlutterPlus.exportLogs();
 ```
+
+### Image and video responses
+
+Responses with an `image/*` or `video/*` content type get a Media tab. Images
+are previewable and can be opened larger by tapping the preview. The tab shows
+the response content type and size. Video responses show a media card with
+their content type and size; inline video playback is not currently available.
+Media bodies up to 1 MiB are retained for previews. Larger media bodies are
+omitted from local history and marked as truncated, while the recorded response
+size remains available.
 
 ## Notifications
 
@@ -133,8 +149,8 @@ permission during initialization:
 Android notifications use the package's fixed Chucker notification icon. iOS
 and macOS use the app icon and request notification permission during
 initialization. Linux and Windows use their desktop notification services.
-Notification tap routing is available on Android and Apple platforms; desktop
-notification services may not return tap events to Flutter.
+Notification tap routing depends on the platform notification service and may
+not be available on every desktop environment.
 
 ## Console logging
 
