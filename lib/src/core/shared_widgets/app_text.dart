@@ -25,8 +25,7 @@ class AppText extends StatelessWidget {
     this.overflow,
     this.textAlign,
     this.softWrap,
-    required this._variant,
-  });
+  }) : _variant = _Variant.body;
 
   // ── Named constructors ───────────────────────────────────────────────────
 

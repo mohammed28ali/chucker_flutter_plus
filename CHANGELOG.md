@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.4
+
+- Improved package analysis compatibility and documented the 1.0.3 release.
+
+## 1.0.3
+
+- Improved package metadata and compatibility across Flutter platforms.
+- Added Chopper and `package:http` network logging adapters.
+
 ## 1.0.0
 
 - Added the in-app HTTP inspector with bounded request history, banners, and optional system notifications.

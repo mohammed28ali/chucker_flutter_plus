@@ -9,11 +9,10 @@ typedef NetworkLogPrinter = void Function(String message);
 /// Client-independent formatter and printer for network activity.
 class NetworkLogger {
   NetworkLogger({
-    NetworkLogConfig config = const NetworkLogConfig(),
+    this.config = const NetworkLogConfig(),
     NetworkLogPrinter? printer,
     LogRedactor? redactor,
-  }) : config = config,
-       printer = printer ?? _defaultPrinter,
+  }) : printer = printer ?? _defaultPrinter,
        redactor =
            redactor ??
            LogRedactor(
