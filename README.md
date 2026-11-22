@@ -1,69 +1,28 @@
-# chucker_flutter_plus
+# Chucker Flutter Plus
 
 ![Chucker Flutter Plus logo](assets/images/chucker_flutter_plus_logo.png)
 
-`chucker_flutter_plus` captures HTTP traffic from Dio and `package:http`, keeps
-a bounded local history, and opens an in-app screen where you can inspect
-requests and responses. It also includes an optional console `NetworkLogger`
-that can be shared by Dio, Chopper, and `package:http`.
+Capture and inspect HTTP traffic inside your Flutter app. Chucker Flutter Plus
+stores a bounded local request history, shows in-app banners, and can post
+optional system notifications. It supports Dio and `package:http` capture, plus
+a separate console logger for Dio, Chopper, and `package:http`.
 
-![Chucker Flutter Plus banner](assets/images/chucker_flutter_plus_banner.png)
+![Chucker Flutter Plus feature banner](assets/images/chucker_flutter_plus_banner.png)
 
 ## Install
-
-Add the package to your app:
 
 ```sh
 flutter pub add chucker_flutter_plus
 ```
 
-Or add it to `pubspec.yaml`:
+## Capture requests
 
-```yaml
-dependencies:
-  chucker_flutter_plus: ^1.0.0
-```
-
-Then run `flutter pub get`.
-
-## Capture traffic and open the inspector
-
-Initialize Chucker once before `runApp`, then add the adapter for each client
-whose traffic you want to capture. Chucker uses your app's existing navigator;
-it does not replace your router or navigator key.
-
-## Shared network logger
-
-Create one logger and pass it to every client adapter. `NetworkLogger` and its
-models are client-independent and are available from
-`package:chucker_flutter_plus/network_logger.dart`.
+Initialize the inspector once before `runApp`. Add its navigator observer to
+your `MaterialApp` so in-app banners can attach to the app overlay and
+notification taps can open the selected request.
 
 ```dart
-import 'package:chucker_flutter_plus/network_logger.dart';
-
-final networkLogger = NetworkLogger(
-  config: const NetworkLogConfig(
-    logRequestHeaders: true,
-    logRequestBody: true,
-    logResponseHeaders: true,
-    logResponseBody: true,
-    logErrorBody: true,
-    logCurlCommand: true,
-    maxBodyLength: 4000,
-    slowRequestThreshold: Duration(seconds: 10),
-  ),
-  printer: (line) => debugPrint(line),
-);
-```
-
-Logging is enabled in debug builds by default. Set `enabled: true` to opt in
-elsewhere, or set `forceLogging: true` to force logs even when `enabled` is
-false. Review captured traffic carefully before enabling logs in production.
-
-### Dio
-
-```dart
-import 'package:chucker_flutter_plus/dio_network_logger.dart';
+import 'package:chucker_flutter_plus/chucker_flutter_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
@@ -88,138 +47,67 @@ class MyApp extends StatelessWidget {
   );
 }
 
-final dio = Dio()
-  ..interceptors.add(DioNetworkLoggerInterceptor(logger: networkLogger));
-```
-
-### Chopper
-
-```dart
-import 'package:chucker_flutter_plus/chopper_network_logger.dart';
-import 'package:chopper/chopper.dart';
-
-final chopper = ChopperClient(
-  interceptors: [ChopperNetworkLoggerInterceptor(logger: networkLogger)],
-);
-```
-
-### `package:http`
-
-```dart
-import 'package:chucker_flutter_plus/http_network_logger.dart';
-import 'package:http/http.dart' as http;
-
-final httpClient = LoggingHttpClient(
-  inner: http.Client(),
-  logger: networkLogger,
-);
-```
-
-The HTTP adapter tees response bytes as the application reads them, preserving
-the response stream. It retains at most four times `maxBodyLength` bytes for
-diagnostic output. It logs a request body when the request is an `http.Request`;
-it does not consume a `StreamedRequest` body to inspect it.
-
-## Configuration, redaction, and request control
-
-`NetworkLogConfig` controls request, response, and error logging, request and
-response headers and bodies, cURL generation, truncation, slow-call threshold,
-ANSI colors, and sensitive header/body keys. Authorization, cookie, API key,
-password, and token fields are redacted by default. Provide a `LogRedactor` to
-customize sensitive keys:
-
-```dart
-final logger = NetworkLogger(
-  config: const NetworkLogConfig(enabled: true),
-  redactor: const LogRedactor(
-    sensitiveHeaders: {'authorization', 'x-session-id'},
-    sensitiveJsonKeys: {'password', 'access_token', 'private_note'},
-  ),
-  printer: (message) => myLogger.info(message),
-);
-```
-
-Use the following markers to omit an individual request from logs:
-
-```dart
-// Dio
-dio.get('/private', options: Options(extra: {
-  DioNetworkLoggerInterceptor.disableLoggingExtraKey: true,
-}));
-
-// Chopper
-final privateRequest = chopper.Request(
-  'GET', Uri.parse('/private'), Uri.parse('https://api.example.com'),
-  tag: const NetworkLoggerDisabled(),
-);
-
-// HTTP: this control header is stripped before the request is sent.
-final request = http.Request('GET', uri)
-  ..headers[LoggingHttpClient.disableLoggingHeader] = 'true';
-```
-
-Logging and printer exceptions are contained by the logger so they do not
-change the network client's result.
-
-## In-app inspector and notifications
-
-Attach the navigator key to the host app and install an inspector adapter:
-
-```dart
 final dio = Dio()..interceptors.add(ChuckerDioInterceptor());
 ```
 
-If your app already uses a navigator key, pass it to `initialize` and keep
-using it in your app:
+For `package:http`, wrap a client:
 
 ```dart
-final appNavigatorKey = GlobalKey<NavigatorState>();
-
-await ChuckerFlutterPlus.initialize(navigatorKey: appNavigatorKey);
-
-MaterialApp(navigatorKey: appNavigatorKey, home: const HomePage());
-```
-
-For `package:http`, wrap the client:
-
-```dart
+import 'package:chucker_flutter_plus/chucker_flutter_plus.dart';
 import 'package:http/http.dart' as http;
 
-final httpClient = ChuckerHttpClient(http.Client());
-final response = await httpClient.get(Uri.parse('https://example.com/items'));
+final client = ChuckerHttpClient(http.Client());
+final response = await client.get(Uri.parse('https://example.com/items'));
 ```
 
-Open the inspector from a widget, for example with a button:
+`ChuckerHttpClient` buffers each response before returning it so the inspector
+can save the response body, then returns the response bytes to the caller.
+
+### Open the inspector
+
+Add the built-in button to a widget:
 
 ```dart
 ChuckerFlutterPlus.button()
 ```
 
-Or open it from a widget context and optionally select a captured request:
+Or open the inspector directly. Pass a request ID to open that request's
+details page:
 
 ```dart
 ChuckerFlutterPlus.showInspector(context);
 ChuckerFlutterPlus.showInspector(context, requestId);
 ```
 
-`ChuckerFlutterPlus.hideInspector()` closes it. You can also clear the saved
-history or export it as JSON:
+Use `ChuckerFlutterPlus.hideInspector()` to close it. The inspector also
+provides methods to clear history and export it as JSON:
 
 ```dart
 await ChuckerFlutterPlus.clearLogs();
 final json = await ChuckerFlutterPlus.exportLogs();
 ```
 
-## In-app and system notifications
+## Notifications
 
-In-app banners are configured separately from operating system notifications.
-Use `InspectorConfig` when you want to set their behavior:
+In-app banners appear while the app is in the foreground. Enable system
+notifications during initialization if you also want OS notifications when
+the app is in the background:
+
+```dart
+await ChuckerFlutterPlus.initialize(
+  enableNotifications: true,
+  notificationIcon: '@mipmap/ic_launcher',
+);
+```
+
+For more control, configure both notification types with `Inspector`:
 
 ```dart
 await Inspector.init(
   config: const InspectorConfig(
     showInAppNotification: true,
-    showStatusBarNotification: false,
+    showStatusBarNotification: true,
+    statusBarWhileForeground: false,
     inAppNotificationDuration: Duration(seconds: 3),
     inAppNotificationPosition: BannerPosition.top,
     notifyOnlyOnError: false,
@@ -228,38 +116,31 @@ await Inspector.init(
 );
 ```
 
-System notifications require platform permission. On Android, add this to the
-host app's `android/app/src/main/AndroidManifest.xml`:
+On Android 13 and later, add the notification permission to the host app's
+`android/app/src/main/AndroidManifest.xml`; the package also requests runtime
+permission during initialization:
 
 ```xml
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
-The default Android small icon is `@mipmap/ic_launcher`. For a clear status bar
-icon, provide a white-on-transparent drawable in
-`android/app/src/main/res/drawable` and set `notificationIcon` in
-`initialize` or `statusBarIcon` in `InspectorConfig`. Add the notification
-permission to the host app manifest; requesting it in Dart cannot replace this
-manifest declaration. iOS permission is requested during initialization. Tapping
-a Chucker notification opens the inspector at the matching request; other
-notification payloads are forwarded to the callback passed to
-`initialize`/`Inspector.init`.
+The default Android small icon is `@mipmap/ic_launcher`. For a custom status
+bar icon, add a white-on-transparent drawable to the host app's Android
+resources and pass its resource name with `notificationIcon` or
+`InspectorConfig.statusBarIcon`. iOS uses the app icon and requests notification
+permission during initialization. Tapping a Chucker system notification opens
+the inspector at the matching request.
 
-## Shared console `NetworkLogger`
+## Console logging
 
-The console logger is independent of transaction storage and the inspector UI.
-Create one instance and pass it to as many client adapters as you use:
+`NetworkLogger` is independent from inspector capture. Create one instance and
+share it across your network clients. Logging is enabled in debug builds by
+default; use `forceLogging: true` to enable it in release builds.
 
 ```dart
-import 'package:chopper/chopper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:chucker_flutter_plus/network_logger.dart';
-import 'package:chucker_flutter_plus/network_logger_dio.dart';
-import 'package:chucker_flutter_plus/network_logger_chopper.dart';
-import 'package:chucker_flutter_plus/network_logger_http.dart';
-import 'package:dio/dio.dart';
-import 'package:http/http.dart' as http;
 
-final dio = Dio();
 final logger = NetworkLogger(
   config: const NetworkLogConfig(
     logRequestHeaders: true,
@@ -269,72 +150,81 @@ final logger = NetworkLogger(
     logErrorBody: true,
     logCurlCommand: true,
     maxBodyLength: 4000,
-    slowRequestThreshold: Duration(seconds: 10),
+    slowRequestThreshold: Duration(seconds: 3),
   ),
+  printer: debugPrint,
 );
+```
 
-dio.interceptors.add(DioNetworkLoggerInterceptor(logger: logger));
+Use the matching adapter for each client:
 
-final chopperClient = ChopperClient(
-  baseUrl: Uri.parse('https://example.com'),
+```dart
+import 'package:chopper/chopper.dart' as chopper;
+import 'package:chucker_flutter_plus/dio_network_logger.dart';
+import 'package:chucker_flutter_plus/chopper_network_logger.dart';
+import 'package:chucker_flutter_plus/http_network_logger.dart';
+import 'package:dio/dio.dart';
+import 'package:http/http.dart' as http;
+
+final dio = Dio()
+  ..interceptors.add(DioNetworkLoggerInterceptor(logger: logger));
+
+final chopper = ChopperClient(
   interceptors: [ChopperNetworkLoggerInterceptor(logger: logger)],
 );
 
-final loggedHttpClient = LoggingHttpClient(
+final loggedHttp = LoggingHttpClient(
   inner: http.Client(),
   logger: logger,
 );
 ```
 
-The core logger is also available on its own through
-`package:chucker_flutter_plus/network_logger.dart`. Adapter entry points are
-`network_logger_dio.dart`, `network_logger_chopper.dart`, and
-`network_logger_http.dart`.
-
-The logger prints in debug builds by default. Set `forceLogging: true` to log
-in release builds. A custom printer can route messages to your logging system:
+The console logger redacts common credential headers and sensitive JSON keys
+by default. Customize them with `NetworkLogConfig.sensitiveHeaders`,
+`NetworkLogConfig.sensitiveJsonKeys`, or a `LogRedactor`:
 
 ```dart
 final logger = NetworkLogger(
-  config: const NetworkLogConfig(forceLogging: true),
-  printer: (message) => myAppLogger.debug(message),
+  redactor: const LogRedactor(
+    sensitiveHeaders: {'authorization', 'x-session-id'},
+    sensitiveJsonKeys: {'password', 'access_token', 'private_note'},
+  ),
 );
 ```
 
-Common credential headers (`Authorization`, `Cookie`, `Set-Cookie`, and
-`X-Api-Key`) and sensitive JSON keys (`password`, `token`, `access_token`,
-`refresh_token`, and `secret`) are redacted by default. Configure the key sets
-through `NetworkLogConfig.sensitiveHeaders` and `sensitiveJsonKeys`, or provide
-a custom `LogRedactor` to `NetworkLogger`.
-
-Disable console logging for one request with Dio's `extra` map:
+Disable logging for an individual request with the adapter's control:
 
 ```dart
-await dio.get(
-  '/private',
-  options: Options(extra: {'network_logger.disabled': true}),
+// Dio
+dio.get('/private', options: Options(extra: {
+  DioNetworkLoggerInterceptor.disableLoggingExtraKey: true,
+}));
+
+// Chopper
+final privateChopperRequest = chopper.Request(
+  'GET',
+  Uri.parse('/private'),
+  Uri.parse('https://api.example.com'),
+  tag: const NetworkLoggerDisabled(),
 );
+
+// package:http: the control header is removed before sending.
+final privateHttpRequest = http.Request('GET', uri)
+  ..headers[LoggingHttpClient.disableLoggingHeader] = 'true';
 ```
 
-For Chopper, set `Request.tag` to
-`ChopperNetworkLoggerInterceptor.disableRequestTag`. For `package:http`, pass
-a `shouldLog` predicate to `LoggingHttpClient`. The HTTP logger does not consume
-request streams to inspect them; it forwards response chunks as they arrive
-and logs the response once its stream has been read.
+`LoggingHttpClient` preserves response streaming and logs after the stream is
+read. It does not consume a `StreamedRequest` body to inspect it.
 
-## Configuration and privacy
+## Privacy and retention
 
-Capture is enabled in debug builds by default. To enable inspector capture in
-release builds, call:
+Inspector capture is enabled in debug builds by default. Set
+`enableOnRelease: true` during initialization, or call
+`ChuckerFlutterPlus.configure(enableOnRelease: true)`, to enable capture in
+release builds. Set `maximumEntries` and `retention` to bound local history.
 
-```dart
-ChuckerFlutterPlus.configure(enableOnRelease: true);
-```
-
-Set `maximumEntries` to bound local history and `retention` to remove older
-transactions. Request headers are redacted before they are stored; by default
-`Authorization`, `Cookie`, and `Set-Cookie` are sensitive. Customize them with
-`redactHeaders` during initialization:
+Request headers are redacted before storage. The defaults cover `Authorization`,
+`Cookie`, and `Set-Cookie`; configure additional headers with `redactHeaders`:
 
 ```dart
 await ChuckerFlutterPlus.initialize(
@@ -342,20 +232,8 @@ await ChuckerFlutterPlus.initialize(
 );
 ```
 
-Request and response bodies are retained for inspection. Review the data your
-app sends before enabling capture in release builds. Binary bodies are shown
-as Base64; JSON can be pretty-printed in the inspector.
-
-## API overview
-
-- `ChuckerDioInterceptor` and `ChuckerHttpClient` record transactions for the
-  inspector.
-- `DioNetworkLoggerInterceptor`, `ChopperNetworkLoggerInterceptor`, and
-  `LoggingHttpClient` send normalized events to the shared console logger.
-- `ChuckerFlutterPlus` initializes capture and opens the inspector.
-- `Inspector` and `InspectorConfig` provide an object-based notification and
-  retention setup.
-- `NetworkTransaction` is the immutable model for a captured request.
+Request and response bodies are stored for inspection. Review the data your app
+sends before enabling capture or console logging in production.
 
 ## Development
 
