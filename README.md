@@ -1,13 +1,12 @@
 # Chucker Flutter Plus
 
-![Chucker Flutter Plus logo](assets/images/chucker_flutter_plus_logo.png)
+![Chucker Flutter Plus feature banner](assets/images/chucker_flutter_plus_banner.png)
 
 Capture and inspect HTTP traffic inside your Flutter app. Chucker Flutter Plus
 stores a bounded local request history, shows in-app banners, and can post
 optional system notifications. It supports Dio and `package:http` capture, plus
 a separate console logger for Dio, Chopper, and `package:http`.
 
-![Chucker Flutter Plus feature banner](assets/images/chucker_flutter_plus_banner.png)
 
 ## Install
 
