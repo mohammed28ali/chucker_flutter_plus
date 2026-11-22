@@ -1,9 +1,12 @@
+
 name: chucker_flutter_plus
 description: In-app HTTP inspector for Flutter with request history, notifications, and shared logging for Dio, Chopper, and package:http.
-version: 0.1.0
-homepage: https://github.com/mohammed28ali/chucker-flutter-plus
-repository: https://github.com/mohammed28ali/chucker-flutter-plus
-issue_tracker: https://github.com/mohammed28ali/chucker-flutter-plus/issues
+version: 1.0.0
+
+homepage: https://github.com/mohammed28ali/chucker_flutter_plus
+repository: https://github.com/mohammed28ali/chucker_flutter_plus
+issue_tracker: https://github.com/mohammed28ali/chucker_flutter_plus/issues
+
 topics:
   - flutter
   - http
@@ -13,13 +16,14 @@ topics:
 
 environment:
   sdk: ^3.13.2
-  flutter: ">=1.17.0"
+  flutter: ">=3.0.0"
 
 dependencies:
-  dio: ^5.11.1
-  chopper: ^8.7.0
   flutter:
     sdk: flutter
+
+  dio: ^5.11.1
+  chopper: ^8.7.0
   flutter_local_notifications: ^23.0.2
   hive_ce: ^2.23.3
   hive_ce_flutter: ^2.3.0
@@ -33,6 +37,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 flutter:
+  uses-material-design: true
+
   fonts:
     - family: Roboto
       fonts:
@@ -67,3 +73,7 @@ flutter:
           weight: 700
         - asset: assets/fonts/monospace/MonospaceOblique.ttf
           style: italic
+
+  assets:
+    - assets/images/chucker_flutter_plus_logo.png
+    - assets/images/chucker_flutter_plus_banner.png

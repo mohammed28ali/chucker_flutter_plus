@@ -32,6 +32,7 @@ class ChuckerFlutterPlus {
   static ChuckerDependencies get dependencies => _dependencies;
   static OverlayEntry? _entry;
   static ChuckerNotificationService? _notifications;
+  static String? _pendingNotificationRequestId;
   static final settings = InspectorSettingsStore();
   static final _banner = RequestBannerController();
   static bool get isEnabled => kDebugMode || showOnRelease;
@@ -56,7 +57,7 @@ class ChuckerFlutterPlus {
     bool? enableOnRelease,
     bool enableNotifications = false,
     String notificationChannelName = 'Network inspector',
-    String notificationIcon = '@drawable/chucker_icon',
+    String notificationIcon = '@mipmap/ic_launcher',
     Set<String> redactHeaders = const {'authorization', 'cookie', 'set-cookie'},
     GlobalKey<NavigatorState>? navigatorKey,
     void Function(String? payload)? onUnrecognizedNotificationPayload,
@@ -84,8 +85,7 @@ class ChuckerFlutterPlus {
     if (enableNotifications) {
       _notifications = ChuckerNotificationService(
         onRequestSelected: (id) {
-          final context = effectiveNavKey.currentContext ?? _banner.context;
-          if (context != null) showInspector(context, id);
+          _openNotificationRequest(id, effectiveNavKey);
         },
         onUnrecognizedPayload: onUnrecognizedNotificationPayload,
       );
@@ -152,6 +152,35 @@ class ChuckerFlutterPlus {
       ),
     );
     overlay.insert(_entry!);
+  }
+
+  static void _openNotificationRequest(
+    String requestId,
+    GlobalKey<NavigatorState>? preferredKey,
+  ) {
+    final context =
+        preferredKey?.currentContext ??
+        navigatorKey.currentContext ??
+        _banner.context;
+    if (context != null && context.mounted) {
+      showInspector(context, requestId);
+    } else {
+      // The notification can launch the process before runApp has attached a
+      // Navigator. Retry after the first frame; the observer also drains this
+      // value when the app uses the package's navigator observer.
+      _pendingNotificationRequestId = requestId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final pending = _pendingNotificationRequestId;
+        final readyContext =
+            preferredKey?.currentContext ??
+            navigatorKey.currentContext ??
+            _banner.context;
+        if (pending != null && readyContext != null && readyContext.mounted) {
+          _pendingNotificationRequestId = null;
+          showInspector(readyContext, pending);
+        }
+      });
+    }
   }
 
   static void hideInspector() {
@@ -330,6 +359,11 @@ class _ChuckerNavigatorObserver extends NavigatorObserver {
         ChuckerFlutterPlus.navigatorKey.currentContext;
     if (context != null && context.mounted) {
       ChuckerFlutterPlus._banner.bind(context);
+      final requestId = ChuckerFlutterPlus._pendingNotificationRequestId;
+      if (requestId != null) {
+        ChuckerFlutterPlus._pendingNotificationRequestId = null;
+        ChuckerFlutterPlus.showInspector(context, requestId);
+      }
     }
   }
 

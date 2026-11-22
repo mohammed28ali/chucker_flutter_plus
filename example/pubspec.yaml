@@ -20,3 +20,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - ../assets/images/chucker_flutter_plus_logo.png
+    - ../assets/images/chucker_flutter_plus_banner.png

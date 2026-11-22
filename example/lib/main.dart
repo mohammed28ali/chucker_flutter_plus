@@ -19,6 +19,8 @@ Future<void> main() async {
   await ChuckerFlutterPlus.initialize(
     maximumEntries: 200,
     retention: const Duration(days: 7),
+    enableNotifications: true,
+    notificationIcon: '@drawable/chucker_icon',
     redactHeaders: {'authorization', 'cookie', 'set-cookie', 'x-api-key'},
   );
   runApp(ChuckerExampleApp(repository: _createPostsRepository()));
@@ -32,6 +34,7 @@ class ChuckerExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Chucker Plus',
+    navigatorObservers: [ChuckerFlutterPlus.navigatorObserver],
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,

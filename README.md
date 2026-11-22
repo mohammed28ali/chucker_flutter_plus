@@ -1,9 +1,13 @@
 # chucker_flutter_plus
 
+![Chucker Flutter Plus logo](assets/images/chucker_flutter_plus_logo.png)
+
 `chucker_flutter_plus` captures HTTP traffic from Dio and `package:http`, keeps
 a bounded local history, and opens an in-app screen where you can inspect
 requests and responses. It also includes an optional console `NetworkLogger`
 that can be shared by Dio, Chopper, and `package:http`.
+
+![Chucker Flutter Plus feature banner](assets/images/chucker_flutter_plus_banner.png)
 
 ## Install
 
@@ -121,9 +125,12 @@ host app's `android/app/src/main/AndroidManifest.xml`:
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
-Provide a white-on-transparent `chucker_icon` drawable in
-`android/app/src/main/res/drawable`, or set `statusBarIcon` in
-`InspectorConfig`. iOS permission is requested during initialization. Tapping
+The default Android small icon is `@mipmap/ic_launcher`. For a clear status bar
+icon, provide a white-on-transparent drawable in
+`android/app/src/main/res/drawable` and set `notificationIcon` in
+`initialize` or `statusBarIcon` in `InspectorConfig`. Add the notification
+permission to the host app manifest; requesting it in Dart cannot replace this
+manifest declaration. iOS permission is requested during initialization. Tapping
 a Chucker notification opens the inspector at the matching request; other
 notification payloads are forwarded to the callback passed to
 `initialize`/`Inspector.init`.

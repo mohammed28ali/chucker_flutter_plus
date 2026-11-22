@@ -19,7 +19,7 @@ class ChuckerNotificationService {
 
   Future<void> initialize({
     String channelName = 'Network inspector',
-    String icon = '@drawable/chucker_icon',
+    String icon = '@mipmap/ic_launcher',
   }) async {
     await _plugin.initialize(
       settings: InitializationSettings(
