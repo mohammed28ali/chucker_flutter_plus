@@ -20,16 +20,13 @@ environment:
 
 dependencies:
   dio: ^5.11.1
-=======
-  dio: ^5.9.0
->>>>>>> Stashed changes
   chopper: ^8.7.0
-  flutter_local_notifications: ^23.0.2
-  hive_ce: ^2.23.3
-  hive_ce_flutter: ^2.3.0
+  flutter_local_notifications: ^23.0.3
+  hive_ce: ^2.24.0
+  hive_ce_flutter: ^2.6.0
   http: ^1.6.0
   share_plus: ^13.3.1
-  fluttertoast: ^10.0.2
+  fluttertoast: ^10.0.3
 
 dev_dependencies:
   flutter_test:

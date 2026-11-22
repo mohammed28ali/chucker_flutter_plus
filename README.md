@@ -2,7 +2,6 @@
 
 ![Chucker Flutter Plus logo](assets/images/chucker_flutter_plus_logo.png)
 
-<<<<<<< Updated upstream
 `chucker_flutter_plus` captures HTTP traffic from Dio and `package:http`, keeps
 a bounded local history, and opens an in-app screen where you can inspect
 requests and responses. It also includes an optional console `NetworkLogger`
@@ -20,24 +19,22 @@ Or add it to `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  chucker_flutter_plus: ^0.1.0
+  chucker_flutter_plus: ^1.0.0
 ```
 
-<<<<<<< Updated upstream
+Then run `flutter pub get`.
+
 ## Capture traffic and open the inspector
 
 Initialize Chucker once before `runApp`, then add the adapter for each client
 whose traffic you want to capture. Chucker uses your app's existing navigator;
 it does not replace your router or navigator key.
-=======
-Then run `flutter pub get`.
 
 ## Shared network logger
 
 Create one logger and pass it to every client adapter. `NetworkLogger` and its
 models are client-independent and are available from
 `package:chucker_flutter_plus/network_logger.dart`.
->>>>>>> Stashed changes
 
 ```dart
 import 'package:chucker_flutter_plus/network_logger.dart';
@@ -170,7 +167,6 @@ Attach the navigator key to the host app and install an inspector adapter:
 final dio = Dio()..interceptors.add(ChuckerDioInterceptor());
 ```
 
-<<<<<<< Updated upstream
 If your app already uses a navigator key, pass it to `initialize` and keep
 using it in your app:
 
@@ -366,27 +362,3 @@ dart format .
 flutter analyze
 flutter test
 ```
-=======
-Captured requests show an in-app notification with method, status or error, and
-URL. **Details** opens the transaction inspector. Set
-`ChuckerFlutterPlus.showNotification = false` to suppress the banner. Open the
-inspector manually with `ChuckerFlutterPlus.button()` or
-`ChuckerFlutterPlus.showChuckerScreen()`.
-
-The capture adapters (`ChuckerDioInterceptor` and `ChuckerHttpClient`) persist
-transactions for the inspector. The `DioNetworkLoggerInterceptor`,
-`ChopperNetworkLoggerInterceptor`, and `LoggingHttpClient` adapters print
-sanitized diagnostics. You can use both features together.
-
-Capture is enabled only in debug builds by default. Call
-`ChuckerFlutterPlus.configure(enableOnRelease: true)` to capture in release
-builds; sanitize or redact sensitive traffic before enabling it.
-
-## Public entry points
-
-- `network_logger.dart`: shared logger, configuration, models, and redactor.
-- `dio_network_logger.dart`: shared logger and Dio logging adapter.
-- `chopper_network_logger.dart`: shared logger and Chopper logging adapter.
-- `http_network_logger.dart`: shared logger and HTTP logging adapter.
-- `chucker_flutter_plus.dart`: inspector, capture adapters, and all logger APIs.
->>>>>>> Stashed changes
