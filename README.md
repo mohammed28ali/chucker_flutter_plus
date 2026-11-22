@@ -76,6 +76,38 @@ flutter create --platforms=linux,macos,windows .
 Build each target on its supported host platform. Linux builds also require the
 GTK 3 development packages listed in Flutter's Linux setup guide.
 
+## HTTP compression
+
+Compression is negotiated by the HTTP client; Chucker does not compress
+requests or responses. With the default clients, gzip compression works across
+the native platforms:
+
+| Platforms | Default behavior |
+| --- | --- |
+| Android, iOS, Linux, macOS, Windows | Dio's native adapter and `package:http`'s `IOClient` use Dart `HttpClient`, which requests gzip and decompresses gzip responses automatically. |
+| Web | Dio's browser adapter and `package:http`'s `BrowserClient` leave negotiation and decompression to the browser. The browser controls `Accept-Encoding`. |
+
+No platform-specific Chucker setup is needed. Custom Dio adapters or custom
+`package:http` clients may use different compression behavior. Dart's native
+`HttpClient` automatically decompresses gzip; other encodings depend on the
+underlying client. See the [Dart `HttpClient` compression docs](https://api.dart.dev/dart-io/HttpClient/autoUncompress.html),
+[Dio adapters](https://pub.dev/documentation/dio/latest/dio/HttpClientAdapter-class.html),
+and [`package:http` client implementations](https://pub.dev/packages/http#choosing-an-implementation).
+
+When a response includes `Content-Length`, Chucker uses that value for the
+reported response size. For compressed responses this can be the smaller wire
+size, while the body exposed to the app has already been decompressed. If the
+length is absent, Chucker falls back to the observed body size.
+
+Gzip usually saves network transfer for text and JSON, at the cost of CPU time
+to compress and decompress. It usually adds little benefit for already
+compressed formats such as JPEG, PNG, MP4, or ZIP. Chucker adds its own cost
+when capture is enabled: it reads response bodies for inspection, and
+`ChuckerHttpClient` buffers the full response before returning it. This can
+increase memory use and response latency for large downloads or streaming
+endpoints. Media preview data is retained only up to 1 MiB; this storage limit
+does not limit the response delivered to your app.
+
 ### Open the inspector
 
 Add the built-in button to a widget:
