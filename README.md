@@ -1,6 +1,6 @@
 # Chucker Flutter Plus
 
-![Chucker Flutter Plus feature banner](assets/images/chucker_flutter_plus_banner.png)
+![Chucker Flutter Plus feature banner](https://raw.githubusercontent.com/mohammed28ali/chucker_flutter_plus/main/assets/images/chucker_flutter_plus_banner.png)
 
 Capture and inspect HTTP traffic inside your Flutter app. Chucker Flutter Plus
 stores a bounded local request history, shows in-app banners, and can post
