@@ -3,7 +3,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../domain/entities/network_transaction.dart';
 
 class ChuckerNotificationService {
-  static const notificationIcon = '@drawable/chucker_icon';
+  // This resource is packaged in the Android library namespace, so consumers
+  // do not need to copy it into their own res/ directory.
+  static const notificationIcon = 'chucker_flutter_plus:drawable/chucker_icon';
   ChuckerNotificationService({
     this.onRequestSelected,
     this.onUnrecognizedPayload,
