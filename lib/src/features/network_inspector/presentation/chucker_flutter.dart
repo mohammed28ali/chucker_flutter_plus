@@ -360,18 +360,28 @@ class _IsolatedInspectorState extends State<_IsolatedInspector> {
 }
 
 class _ChuckerNavigatorObserver extends NavigatorObserver {
-  void _updateContext(Route<dynamic>? route) {
+  void _bindRoute(Route<dynamic>? route) {
+    final navigator = route?.navigator;
     final context =
-        route?.navigator?.context ??
+        (route is ModalRoute<dynamic> ? route.subtreeContext : null) ??
+        navigator?.context ??
         ChuckerFlutterPlus.navigatorKey.currentContext;
     if (context != null && context.mounted) {
-      ChuckerFlutterPlus._banner.bind(context);
+      ChuckerFlutterPlus._banner.bind(context, overlay: navigator?.overlay);
       final requestId = ChuckerFlutterPlus._pendingNotificationRequestId;
       if (requestId != null) {
         ChuckerFlutterPlus._pendingNotificationRequestId = null;
         ChuckerFlutterPlus.showInspector(context, requestId);
       }
     }
+  }
+
+  void _updateContext(Route<dynamic>? route) {
+    _bindRoute(route);
+    // didPush can run before the Navigator has built its Overlay. Bind again
+    // after the frame so the first request can show a banner without needing
+    // another widget (such as the inspector button) to provide an overlay.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bindRoute(route));
   }
 
   @override

@@ -17,9 +17,9 @@ class RequestBannerController {
   int _pending = 0;
   BuildContext? get context => _context;
 
-  void bind(BuildContext context) {
+  void bind(BuildContext context, {OverlayState? overlay}) {
     _context = context;
-    _overlay = Overlay.maybeOf(context, rootOverlay: true);
+    _overlay = overlay ?? Overlay.maybeOf(context, rootOverlay: true);
     // A navigator can replace its Overlay while the banner is visible. Move
     // the entry to the new Overlay so later requests still reach the screen.
     final entry = _entry;
