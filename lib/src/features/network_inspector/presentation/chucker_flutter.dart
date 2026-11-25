@@ -19,6 +19,10 @@ class ChuckerFlutterPlus {
   static bool showOnRelease = false;
   static bool showNotification = false;
   static String notificationChannelName = 'Network inspector';
+
+  /// Theme override for the inspector overlay. [ThemeMode.system] follows the
+  /// host app brightness without inheriting its colors or typography.
+  static ThemeMode themeMode = ThemeMode.light;
   static Set<String> sensitiveHeaders = {
     'authorization',
     'cookie',
@@ -352,20 +356,45 @@ class _IsolatedInspector extends StatefulWidget {
 }
 
 class _IsolatedInspectorState extends State<_IsolatedInspector> {
+  Brightness? _hostBrightness;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _hostBrightness =
+        MediaQuery.maybeOf(context)?.platformBrightness ??
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = InspectorTheme.light();
-    return Theme(
-      data: theme,
-      child: Material(
-        color: theme.scaffoldBackgroundColor,
-        child: SafeArea(
-          child: Navigator(
-            onGenerateRoute: (routeSettings) => AppRoutes.onGenerateRoute(
-              routeSettings,
-              dependencies: widget.dependencies,
-              initialRequestId: widget.requestId,
-              onClose: ChuckerFlutterPlus.hideInspector,
+    final dark =
+        ChuckerFlutterPlus.themeMode == ThemeMode.dark ||
+        (ChuckerFlutterPlus.themeMode == ThemeMode.system &&
+            _hostBrightness == Brightness.dark);
+    final theme = dark ? InspectorTheme.dark() : InspectorTheme.light();
+    return SizedBox.expand(
+      child: Theme(
+        data: theme,
+        child: MediaQuery(
+          data:
+              MediaQuery.maybeOf(context)?.copyWith(
+                platformBrightness: dark ? Brightness.dark : Brightness.light,
+              ) ??
+              MediaQueryData(
+                platformBrightness: dark ? Brightness.dark : Brightness.light,
+              ),
+          child: Material(
+            color: theme.scaffoldBackgroundColor,
+            child: SafeArea(
+              child: Navigator(
+                onGenerateRoute: (routeSettings) => AppRoutes.onGenerateRoute(
+                  routeSettings,
+                  dependencies: widget.dependencies,
+                  initialRequestId: widget.requestId,
+                  onClose: ChuckerFlutterPlus.hideInspector,
+                ),
+              ),
             ),
           ),
         ),

@@ -57,7 +57,14 @@ class StatusBadge extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasError = error != null && statusCode == null;
     final (fg, bg) = hasError
-        ? (InspectorColors.statusError, InspectorColors.statusErrorBg)
+        ? (
+            isDark
+                ? InspectorColors.statusErrorDark
+                : InspectorColors.statusError,
+            isDark
+                ? InspectorColors.statusErrorBgDark
+                : InspectorColors.statusErrorBg,
+          )
         : InspectorColors.statusColors(statusCode, dark: isDark);
 
     return Tooltip(
@@ -110,7 +117,9 @@ class PendingBadge extends StatelessWidget {
         vertical: small ? AppSizes.gap2 : 3,
       ),
       decoration: BoxDecoration(
-        color: InspectorColors.statusPendingBg,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? InspectorColors.darkSurfaceSecondary
+            : InspectorColors.statusPendingBg,
         borderRadius: BorderRadius.circular(AppSizes.radiusSm),
       ),
       child: Row(
@@ -121,14 +130,18 @@ class PendingBadge extends StatelessWidget {
             height: small ? AppSizes.gap8 : AppSizes.textSm,
             child: CircularProgressIndicator(
               strokeWidth: 1.5,
-              color: InspectorColors.statusPending,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? InspectorColors.darkTextSecondary
+                  : InspectorColors.statusPending,
             ),
           ),
           SizedBox(width: small ? AppSizes.gap4 : 5),
           Text(
             AppStrings.statusPending,
             style: TextStyle(
-              color: InspectorColors.statusPending,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? InspectorColors.darkTextSecondary
+                  : InspectorColors.statusPending,
               fontSize: small ? AppSizes.textXs : AppSizes.textSm,
               fontWeight: FontWeight.w600,
             ),

@@ -162,7 +162,7 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
                   onChanged: (v) => setState(() => _query = v),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search, size: 20),
-                    hintText: 'Search URL, method, status, body…',
+                    hintText: 'Search requests, hosts, status…',
                     suffixIcon: _query.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.close, size: 18),
@@ -576,7 +576,7 @@ class _TransactionTile extends StatelessWidget {
               ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
               : Colors.transparent,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             child: Row(
               children: [
                 if (selectMode)
@@ -593,30 +593,35 @@ class _TransactionTile extends StatelessWidget {
                     ),
                   ),
                 // Method chip
-                MethodChip(t.method),
-                const SizedBox(width: 8),
-                // Status badge
-                StatusBadge(t.statusCode, error: t.error),
-                const SizedBox(width: 10),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MethodChip(t.method, small: true),
+                    const SizedBox(height: 5),
+                    StatusBadge(t.statusCode, error: t.error, small: true),
+                  ],
+                ),
+                const SizedBox(width: 12),
                 // URL info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        t.uri.path.isEmpty ? '/' : t.uri.path,
+                        '${t.uri.host}${t.uri.path.isEmpty ? '/' : t.uri.path}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'monospace',
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        t.host,
+                        '${t.method}  ${t.uri.query.isEmpty ? 'No query parameters' : '${t.uri.queryParameters.length} query parameter${t.uri.queryParameters.length == 1 ? '' : 's'}'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

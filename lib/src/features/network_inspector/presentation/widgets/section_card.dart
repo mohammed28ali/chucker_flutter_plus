@@ -20,6 +20,7 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -34,7 +35,14 @@ class SectionCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: AppText.title(title!),
+                    child: AppText.title(
+                      title!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
                   ),
                   ?trailing,
                 ],

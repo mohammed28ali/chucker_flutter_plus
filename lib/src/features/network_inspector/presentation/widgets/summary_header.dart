@@ -5,7 +5,7 @@ import '../../../../core/core.dart';
 import '../../domain/entities/network_transaction.dart';
 import 'method_chip.dart';
 
-/// Summary header showing aggregate stats about all captured requests.
+/// Compact dashboard metrics for the captured request history.
 class SummaryHeader extends StatelessWidget {
   const SummaryHeader({super.key, required this.transactions});
   final List<NetworkTransaction> transactions;
@@ -13,129 +13,128 @@ class SummaryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (transactions.isEmpty) return const SizedBox.shrink();
-
-    final theme = Theme.of(context);
     final total = transactions.length;
     final successes = transactions.where((t) => t.succeeded).length;
     final errors = total - successes;
-    final avgMs = total == 0
-        ? 0
-        : transactions
-                  .map((t) => t.duration.inMilliseconds)
-                  .reduce((a, b) => a + b) ~/
-              total;
-    final totalBytes = transactions
-        .map((t) => t.responseBodySize)
-        .fold<int>(0, (a, b) => a + b);
+    final average =
+        transactions
+            .map((t) => t.duration.inMilliseconds)
+            .fold<int>(0, (sum, ms) => sum + ms) ~/
+        total;
 
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 420;
+          final items = [
+            _Metric(
+              'Total',
+              '$total',
+              Icons.swap_vert_rounded,
+              InspectorColors.primary,
+            ),
+            _Metric(
+              'Successful',
+              '$successes',
+              Icons.check_circle_outline,
+              InspectorColors.success,
+            ),
+            _Metric(
+              'Failed',
+              '$errors',
+              Icons.error_outline,
+              InspectorColors.error,
+            ),
+            _Metric(
+              'Avg. latency',
+              '${average}ms',
+              Icons.bolt_outlined,
+              InspectorColors.secondary,
+            ),
+          ];
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: items.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: compact ? 2 : 4,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              mainAxisExtent: 66,
+            ),
+            itemBuilder: (context, index) => _MetricCard(metric: items[index]),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Metric {
+  const _Metric(this.label, this.value, this.icon, this.color);
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({required this.metric});
+  final _Metric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(
-        AppSizes.paddingLg,
-        AppSizes.paddingMd,
-        AppSizes.paddingLg,
-        0,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.paddingLg,
-        vertical: AppSizes.paddingMd,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.84),
-            theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.92),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-        border: Border.all(color: InspectorColors.glassHighlight, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6478A8).withValues(alpha: 0.07),
-            blurRadius: 18,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        color: theme.colorScheme.surface,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _stat(
-            context,
-            '$total',
-            AppStrings.statTotal,
-            Icons.list_alt_outlined,
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: metric.color.withValues(alpha: 0.11),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(metric.icon, color: metric.color, size: 17),
           ),
-          _divider(context),
-          _stat(
-            context,
-            '$successes',
-            AppStrings.statSuccess,
-            Icons.check_circle_outline,
-            color: InspectorColors.status2xx,
-          ),
-          _divider(context),
-          _stat(
-            context,
-            '$errors',
-            AppStrings.statErrors,
-            Icons.error_outline,
-            color: InspectorColors.status5xx,
-          ),
-          _divider(context),
-          _stat(
-            context,
-            '${avgMs}ms',
-            AppStrings.statAvg,
-            Icons.timer_outlined,
-          ),
-          _divider(context),
-          _stat(
-            context,
-            _size(totalBytes),
-            AppStrings.statData,
-            Icons.data_usage_outlined,
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  metric.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  metric.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
-
-  Widget _stat(
-    BuildContext context,
-    String value,
-    String label,
-    IconData icon, {
-    Color? color,
-  }) {
-    final theme = Theme.of(context);
-    final c = color ?? theme.colorScheme.onSurface;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: AppSizes.iconMd, color: c.withValues(alpha: 0.7)),
-        const SizedBox(height: AppSizes.gap4),
-        AppText.stat(value, style: TextStyle(color: c)),
-        AppText.caption(
-          label,
-          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-
-  Widget _divider(BuildContext context) => Container(
-    height: 30,
-    width: 1,
-    color: Theme.of(context).colorScheme.outlineVariant,
-  );
-
-  static String _size(int bytes) => bytes < 1024
-      ? '$bytes B'
-      : bytes < 1024 * 1024
-      ? '${(bytes / 1024).toStringAsFixed(1)} KB'
-      : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
 /// The method + status breakdown bar shown below the summary.
