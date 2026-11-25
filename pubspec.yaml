@@ -1,7 +1,7 @@
 
 name: chucker_flutter_plus
 description: In-app HTTP inspector for Flutter with request history, notifications, and shared logging for Dio, Chopper, and package:http.
-version: 1.0.8
+version: 1.0.9
 
 homepage: https://github.com/mohammed28ali/chucker_flutter_plus
 repository: https://github.com/mohammed28ali/chucker_flutter_plus
@@ -23,7 +23,7 @@ dependencies:
     sdk: flutter
   dio: ^5.11.1
   chopper: ^8.7.0
-  flutter_local_notifications: ^23.0.3
+  flutter_local_notifications: ^23.0.4
   hive_ce: ^2.24.0
   hive_ce_flutter: ^2.6.0
   path_provider: ^2.0.10
