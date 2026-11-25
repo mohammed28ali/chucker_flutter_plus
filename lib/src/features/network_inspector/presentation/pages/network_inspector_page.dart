@@ -37,7 +37,8 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   String _methodFilter = AppStrings.filterAll;
-  String _statusFilter = AppStrings.filterAll; // 'All', '2', '3', '4', '5', 'Error'
+  String _statusFilter =
+      AppStrings.filterAll; // 'All', '2', '3', '4', '5', 'Error'
   bool _errorsOnly = false;
   _SortMode _sort = _SortMode.newest;
   bool _openedInitial = false;
@@ -252,15 +253,34 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
         icon: const Icon(Icons.more_vert),
         tooltip: AppStrings.moreOptions,
         itemBuilder: (_) => [
-          const PopupMenuItem(value: 'settings', child: Text(AppStrings.settings)),
-          const PopupMenuItem(value: 'export', child: Text(AppStrings.exportLogs)),
+          const PopupMenuItem(
+            value: 'speed_test',
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.speed),
+              title: Text('Network speed test'),
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'settings',
+            child: Text(AppStrings.settings),
+          ),
+          const PopupMenuItem(
+            value: 'export',
+            child: Text(AppStrings.exportLogs),
+          ),
           const PopupMenuItem(
             value: 'clear',
-            child: Text(AppStrings.clearAll, style: TextStyle(color: Colors.red)),
+            child: Text(
+              AppStrings.clearAll,
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
         onSelected: (v) async {
-          if (v == 'settings') {
+          if (v == 'speed_test') {
+            await ChuckerFlutterPlus.showSpeedTest(context);
+          } else if (v == 'settings') {
             context.pushNamed(Routes.settings);
           } else if (v == 'export') {
             final json = await ChuckerFlutterPlus.exportLogs();
@@ -356,7 +376,9 @@ class _FiltersRow extends StatelessWidget {
           ].map((entry) {
             final label = entry.$1;
             final color = entry.$2;
-            final key = label == AppStrings.filterAll ? AppStrings.filterAll : label[0];
+            final key = label == AppStrings.filterAll
+                ? AppStrings.filterAll
+                : label[0];
             return Padding(
               padding: const EdgeInsets.only(right: AppSizes.gap6),
               child: _FilterChip(
