@@ -1,8 +1,8 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:chucker_flutter_plus/src/features/network_inspector/infrastructure/body_capture.dart';
 
 import '../../../../core/core.dart';
 import '../../domain/entities/network_transaction.dart';
@@ -38,7 +38,8 @@ class _RequestDetailPageState extends State<RequestDetailPage>
       const _TabDef(AppStrings.tabRaw, Icons.code),
       if (t.error != null)
         const _TabDef(AppStrings.tabError, Icons.error_outline),
-      if (_isMedia(t)) const _TabDef(AppStrings.tabMedia, Icons.image_outlined),
+      if (_isMedia(t) || _multipartAttachments(t.rawRequestBody).isNotEmpty)
+        const _TabDef(AppStrings.tabMedia, Icons.image_outlined),
     ];
     _tabCtrl = TabController(length: _tabs.length, vsync: this);
   }
@@ -421,6 +422,7 @@ class _RequestTab extends StatelessWidget {
         HeadersSection(
           headers: t.requestHeaders,
           title: AppStrings.labelRequestHeaders,
+          initiallyExpanded: false,
           sensitiveKeys: ChuckerFlutterPlus.sensitiveHeaders,
         ),
         const SizedBox(height: AppSizes.gap12),
@@ -524,6 +526,11 @@ class _RawTabState extends State<_RawTab> {
                 ),
                 Switch(
                   value: _formatted,
+                  thumbColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? Theme.of(context).colorScheme.onPrimary
+                        : null,
+                  ),
                   onChanged: (v) => setState(() => _formatted = v),
                 ),
               ],
@@ -555,13 +562,21 @@ class _RawText extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(AppSizes.paddingLg),
-      child: SelectableText(
-        text,
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: AppSizes.textMd,
-          height: 1.6,
-          color: theme.colorScheme.onSurface,
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: SelectableText(
+              text,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: AppSizes.textMd,
+                height: 1.6,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -696,6 +711,7 @@ class _MediaTab extends StatelessWidget {
     final isImage = ct.startsWith('image/');
     final isVideo = ct.startsWith('video/');
     final previewBytes = isImage ? _decodeMediaBytes(t.rawResponseBody) : null;
+    final attachments = _multipartAttachments(t.rawRequestBody);
 
     return ListView(
       padding: const EdgeInsets.all(AppSizes.paddingLg),
@@ -745,6 +761,18 @@ class _MediaTab extends StatelessWidget {
             ),
           ),
         ],
+        if (attachments.isNotEmpty) ...[
+          const SizedBox(height: AppSizes.gap12),
+          SectionCard(
+            title: 'Request attachments',
+            child: Column(
+              children: [
+                for (final attachment in attachments)
+                  _AttachmentPreview(attachment: attachment),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -757,6 +785,110 @@ class _MediaTab extends StatelessWidget {
   }
 
   static String _sizeStr(int bytes) => bytes < 1024
+      ? '$bytes B'
+      : bytes < 1024 * 1024
+      ? '${(bytes / 1024).toStringAsFixed(1)} KB'
+      : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+List<Map<String, Object?>> _multipartAttachments(String? body) {
+  if (body == null || !body.startsWith(BodyCapture.multipartPreviewPrefix)) {
+    return const [];
+  }
+  try {
+    final values =
+        jsonDecode(body.substring(BodyCapture.multipartPreviewPrefix.length))
+            as List<dynamic>;
+    return values
+        .whereType<Map>()
+        .map((value) => value.cast<String, Object?>())
+        .where((value) => value['kind'] == 'file')
+        .toList();
+  } on Object {
+    return const [];
+  }
+}
+
+class _AttachmentPreview extends StatelessWidget {
+  const _AttachmentPreview({required this.attachment});
+  final Map<String, Object?> attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = attachment['filename'] as String? ?? 'Unnamed file';
+    final type =
+        attachment['contentType'] as String? ?? 'application/octet-stream';
+    final size = attachment['size'] as int? ?? 0;
+    final encoded = attachment['base64'] as String?;
+    final bytes = encoded == null ? null : _decodeMediaBytes(encoded);
+    final isImage = type.toLowerCase().startsWith('image/');
+    final isVideo = type.toLowerCase().startsWith('video/');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSizes.gap12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isImage && bytes != null)
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => Scaffold(
+                    appBar: AppBar(title: Text(name)),
+                    body: Center(
+                      child: InteractiveViewer(
+                        child: Image.memory(Uint8List.fromList(bytes)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppSizes.radius8),
+                child: Image.memory(
+                  Uint8List.fromList(bytes),
+                  width: double.infinity,
+                  height: 220,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const _MediaPlaceholder(),
+                ),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 120),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppSizes.radius8),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isVideo ? Icons.movie_outlined : Icons.attach_file,
+                    size: AppSizes.iconXxl,
+                    color: theme.colorScheme.primary,
+                  ),
+                  if (isVideo) Text('Video preview unavailable'),
+                  if (isImage && bytes == null)
+                    Text('Image preview unavailable'),
+                  if (!isImage && !isVideo) Text('Preview unavailable'),
+                ],
+              ),
+            ),
+          const SizedBox(height: AppSizes.gap8),
+          KeyValueRow(label: 'File name', value: name),
+          const KeyValueDivider(),
+          KeyValueRow(label: 'File type', value: type),
+          const KeyValueDivider(),
+          KeyValueRow(label: 'File size', value: _formatSize(size)),
+        ],
+      ),
+    );
+  }
+
+  String _formatSize(int bytes) => bytes < 1024
       ? '$bytes B'
       : bytes < 1024 * 1024
       ? '${(bytes / 1024).toStringAsFixed(1)} KB'

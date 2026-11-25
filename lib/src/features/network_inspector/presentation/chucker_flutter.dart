@@ -38,6 +38,7 @@ class ChuckerFlutterPlus {
   static OverlayEntry? _entry;
   static ChuckerNotificationService? _notifications;
   static String? _pendingNotificationRequestId;
+  static String? _openedNotificationRequestId;
   static final settings = InspectorSettingsStore();
   static final _banner = RequestBannerController();
   static bool get isEnabled => kDebugMode || showOnRelease;
@@ -177,6 +178,8 @@ class ChuckerFlutterPlus {
     String requestId,
     GlobalKey<NavigatorState>? preferredKey,
   ) {
+    if (_openedNotificationRequestId == requestId && _entry != null) return;
+    _openedNotificationRequestId = requestId;
     final context =
         preferredKey?.currentContext ??
         navigatorKey.currentContext ??
@@ -194,7 +197,9 @@ class ChuckerFlutterPlus {
             preferredKey?.currentContext ??
             navigatorKey.currentContext ??
             _banner.context;
-        if (pending != null && readyContext != null && readyContext.mounted) {
+        if (pending == requestId &&
+            readyContext != null &&
+            readyContext.mounted) {
           _pendingNotificationRequestId = null;
           showInspector(readyContext, pending);
         }
@@ -205,6 +210,7 @@ class ChuckerFlutterPlus {
   static void hideInspector() {
     _entry?.remove();
     _entry = null;
+    _openedNotificationRequestId = null;
   }
 
   /// Opens a standalone internet speed test for download, upload, and latency.
@@ -413,7 +419,7 @@ class _ChuckerNavigatorObserver extends NavigatorObserver {
     if (context != null && context.mounted) {
       ChuckerFlutterPlus._banner.bind(context, overlay: navigator?.overlay);
       final requestId = ChuckerFlutterPlus._pendingNotificationRequestId;
-      if (requestId != null) {
+      if (requestId != null && ChuckerFlutterPlus._entry == null) {
         ChuckerFlutterPlus._pendingNotificationRequestId = null;
         ChuckerFlutterPlus.showInspector(context, requestId);
       }

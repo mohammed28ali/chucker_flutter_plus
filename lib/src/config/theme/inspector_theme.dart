@@ -191,7 +191,7 @@ abstract final class InspectorTheme {
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
           (states) =>
-              states.contains(WidgetState.selected) ? scheme.primary : null,
+              states.contains(WidgetState.selected) ? scheme.onPrimary : null,
         ),
       ),
       snackBarTheme: SnackBarThemeData(

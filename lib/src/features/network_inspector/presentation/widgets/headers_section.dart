@@ -10,10 +10,12 @@ class HeadersSection extends StatefulWidget {
     super.key,
     required this.headers,
     required this.title,
+    this.initiallyExpanded = true,
     this.sensitiveKeys = const {'authorization', 'cookie', 'set-cookie'},
   });
   final Map<String, String> headers;
   final String title;
+  final bool initiallyExpanded;
   final Set<String> sensitiveKeys;
 
   @override
@@ -21,7 +23,7 @@ class HeadersSection extends StatefulWidget {
 }
 
 class _HeadersSectionState extends State<HeadersSection> {
-  bool _expanded = true;
+  late bool _expanded = widget.initiallyExpanded;
   String _query = '';
   final Map<String, bool> _revealed = {};
 

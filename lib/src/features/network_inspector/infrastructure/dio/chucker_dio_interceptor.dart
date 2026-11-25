@@ -14,21 +14,24 @@ class ChuckerDioInterceptor extends Interceptor {
   }
 
   @override
-  void onResponse(
+  Future<void> onResponse(
     Response<dynamic> response,
     ResponseInterceptorHandler handler,
-  ) {
-    _recordResponse(response);
+  ) async {
+    await _recordResponse(response);
     handler.next(response);
   }
 
   @override
-  void onError(DioException err, ErrorInterceptorHandler handler) {
-    _recordError(err);
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    await _recordError(err);
     handler.next(err);
   }
 
-  void _recordResponse(Response<dynamic> response) {
+  Future<void> _recordResponse(Response<dynamic> response) async {
     final request = response.requestOptions;
     _record(
       NetworkTransaction(
@@ -44,7 +47,7 @@ class ChuckerDioInterceptor extends Interceptor {
         responseHeaders: ChuckerFlutterPlus.redactHeaders(
           _headers(response.headers),
         ),
-        rawRequestBody: BodyCapture.raw(request.data),
+        rawRequestBody: await BodyCapture.multipartBody(request.data),
         rawResponseBody: BodyCapture.raw(response.data),
         requestBodySize: BodyCapture.size(
           request.data,
@@ -56,7 +59,7 @@ class ChuckerDioInterceptor extends Interceptor {
     );
   }
 
-  void _recordError(DioException error) {
+  Future<void> _recordError(DioException error) async {
     final request = error.requestOptions;
     final response = error.response;
     _record(
@@ -73,7 +76,7 @@ class ChuckerDioInterceptor extends Interceptor {
         responseHeaders: response == null
             ? const {}
             : ChuckerFlutterPlus.redactHeaders(_headers(response.headers)),
-        rawRequestBody: BodyCapture.raw(request.data),
+        rawRequestBody: await BodyCapture.multipartBody(request.data),
         rawResponseBody: BodyCapture.raw(response?.data),
         requestBodySize: BodyCapture.size(
           request.data,
@@ -87,8 +90,8 @@ class ChuckerDioInterceptor extends Interceptor {
     );
   }
 
-  void _record(NetworkTransaction transaction) {
-    ChuckerFlutterPlus.record(transaction).ignore();
+  Future<void> _record(NetworkTransaction transaction) {
+    return ChuckerFlutterPlus.record(transaction);
   }
 
   DateTime _startedAt(RequestOptions request) =>

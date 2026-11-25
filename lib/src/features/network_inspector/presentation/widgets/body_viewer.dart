@@ -314,41 +314,38 @@ class _TextBody extends StatelessWidget {
       height: 1.6,
       color: theme.colorScheme.onSurface,
     );
-    final lineNumStyle = TextStyle(
-      fontFamily: 'monospace',
-      fontSize: AppSizes.textSmPlus,
-      height: 1.6,
-      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-    );
-
+    final text = showLineNumbers ? _numberedText(lines) : body;
+    final hasLongLine = lines.any((line) => line.length > 120);
     return SingleChildScrollView(
-      scrollDirection: wordWrap ? Axis.vertical : Axis.horizontal,
+      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(
         AppSizes.paddingLg,
         0,
         AppSizes.paddingLg,
         AppSizes.paddingLg,
       ),
-      child: showLineNumbers
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    for (int i = 0; i < lines.length; i++)
-                      Text('${i + 1}', style: lineNumStyle),
-                  ],
-                ),
-                const SizedBox(width: AppSizes.gap12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [for (final l in lines) Text(l, style: textStyle)],
-                ),
-              ],
-            )
-          : SelectableText(body, style: textStyle),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final unconstrained = !wordWrap || hasLongLine;
+          final content = Text(
+            text,
+            style: textStyle,
+            softWrap: !unconstrained,
+          );
+          if (unconstrained) return content;
+          return SizedBox(width: constraints.maxWidth, child: content);
+        },
+      ),
     );
+  }
+
+  String _numberedText(List<String> lines) {
+    final digits = lines.length.toString().length;
+    return lines.indexed
+        .map(
+          (line) => '${(line.$1 + 1).toString().padLeft(digits)}  ${line.$2}',
+        )
+        .join('\n');
   }
 }
 
