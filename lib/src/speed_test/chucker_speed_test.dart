@@ -158,13 +158,28 @@ class _SpeedTestPageState extends State<_SpeedTestPage> {
       (i) => (i * 31 + 17) & 0xff,
       growable: false,
     );
-    final request = http.Request('POST', Uri.parse(widget.uploadUrl))
-      ..bodyBytes = payload
+    final request = http.StreamedRequest('POST', Uri.parse(widget.uploadUrl))
+      ..contentLength = size
       ..headers['content-type'] = 'application/octet-stream';
     final watch = Stopwatch()..start();
-    final response = await client
+    final responseFuture = client
         .send(request)
         .timeout(const Duration(seconds: 60));
+    const chunkSize = 64 * 1024;
+    var sent = 0;
+    while (sent < payload.length) {
+      final end = math.min(sent + chunkSize, payload.length);
+      request.sink.add(payload.sublist(sent, end));
+      sent = end;
+      if (watch.elapsedMicroseconds > 0 && mounted) {
+        setState(() {
+          _liveSpeed = _mbps(sent, watch.elapsed);
+        });
+      }
+      await Future<void>.delayed(Duration.zero);
+    }
+    await request.sink.close();
+    final response = await responseFuture;
     await response.stream.drain<void>();
     watch.stop();
     if (response.statusCode < 200 || response.statusCode >= 300) {
