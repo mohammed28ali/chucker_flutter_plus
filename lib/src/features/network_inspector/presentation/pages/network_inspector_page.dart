@@ -56,8 +56,11 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
     super.dispose();
   }
 
-  void _reload() =>
-      setState(() => _future = widget.dependencies.transactions.getAll());
+  void _reload() {
+    setState(() {
+      _future = widget.dependencies.transactions.getAll();
+    });
+  }
 
   Future<void> _clearAll() async {
     final ok = await showDialog<bool>(
