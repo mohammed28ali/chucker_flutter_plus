@@ -54,6 +54,7 @@ class _SpeedTestPageState extends State<_SpeedTestPage> {
   double? _ping;
   double? _download;
   double? _upload;
+  double? _liveSpeed;
   String? _error;
   http.Client? _client;
 
@@ -70,6 +71,7 @@ class _SpeedTestPageState extends State<_SpeedTestPage> {
     setState(() {
       _phase = _TestPhase.latency;
       _ping = _download = _upload = null;
+      _liveSpeed = null;
       _error = null;
     });
     try {
@@ -83,6 +85,7 @@ class _SpeedTestPageState extends State<_SpeedTestPage> {
       if (!mounted) return;
       setState(() {
         _download = download;
+        _liveSpeed = null;
         _phase = _TestPhase.upload;
       });
       final upload = await _measureUpload(client);
@@ -138,6 +141,11 @@ class _SpeedTestPageState extends State<_SpeedTestPage> {
       const Duration(seconds: 30),
     )) {
       bytes += chunk.length;
+      if (mounted && watch.elapsedMicroseconds > 0) {
+        setState(() {
+          _liveSpeed = _mbps(bytes, watch.elapsed);
+        });
+      }
     }
     watch.stop();
     return _mbps(bytes, watch.elapsed);
@@ -187,11 +195,13 @@ class _SpeedTestPageState extends State<_SpeedTestPage> {
         _phase == _TestPhase.latency ||
         _phase == _TestPhase.download ||
         _phase == _TestPhase.upload;
-    final current = _phase == _TestPhase.download
-        ? _download
-        : _phase == _TestPhase.upload
-        ? _upload
-        : null;
+    final current = switch (_phase) {
+      _TestPhase.latency => _ping,
+      _TestPhase.download => _liveSpeed ?? _download,
+      _TestPhase.upload => _liveSpeed ?? _upload,
+      _ => null,
+    };
+    final currentUnit = _phase == _TestPhase.latency ? 'ms' : 'Mbps';
     final phaseColor = _phase == _TestPhase.error
         ? colorScheme.error
         : const Color(0xFF14B8A6);
@@ -199,131 +209,136 @@ class _SpeedTestPageState extends State<_SpeedTestPage> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * .88,
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF14B8A6).withValues(alpha: .12),
-                    borderRadius: BorderRadius.circular(12),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Connection lab',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.radar_rounded,
-                    color: Color(0xFF0D9488),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
                   ),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Connection lab',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                ],
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6).withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.radar_rounded,
+                      color: Color(0xFF0D9488),
+                    ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Text(
+                      'Network performance',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                      Text(
-                        'Network performance',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _SpeedHero(
-              phase: _phase,
-              current: current,
-              status: _status,
-              color: phaseColor,
-              running: running,
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _Metric(
-                    label: 'PING',
-                    value: _ping == null
-                        ? '—'
-                        : '${_ping!.toStringAsFixed(0)} ms',
-                    icon: Icons.graphic_eq_rounded,
-                    accent: const Color(0xFF3B82F6),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _SpeedHero(
+                phase: _phase,
+                current: current,
+                currentUnit: currentUnit,
+                status: _status,
+                color: phaseColor,
+                running: running,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _Metric(
+                      label: 'PING',
+                      value: _ping == null
+                          ? '—'
+                          : '${_ping!.toStringAsFixed(0)} ms',
+                      icon: Icons.graphic_eq_rounded,
+                      accent: const Color(0xFF3B82F6),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: _Metric(
-                    label: 'DOWNLOAD',
-                    value: _download == null
-                        ? '—'
-                        : '${_download!.toStringAsFixed(1)} Mbps',
-                    icon: Icons.south_rounded,
-                    accent: const Color(0xFF10B981),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: _Metric(
+                      label: 'DOWNLOAD',
+                      value: _download == null
+                          ? '—'
+                          : '${_download!.toStringAsFixed(1)} Mbps',
+                      icon: Icons.south_rounded,
+                      accent: const Color(0xFF10B981),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: _Metric(
-                    label: 'UPLOAD',
-                    value: _upload == null
-                        ? '—'
-                        : '${_upload!.toStringAsFixed(1)} Mbps',
-                    icon: Icons.north_rounded,
-                    accent: const Color(0xFF8B5CF6),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: _Metric(
+                      label: 'UPLOAD',
+                      value: _upload == null
+                          ? '—'
+                          : '${_upload!.toStringAsFixed(1)} Mbps',
+                      icon: Icons.north_rounded,
+                      accent: const Color(0xFF8B5CF6),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 17),
-            _PhaseTrack(phase: _phase),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: running ? null : _run,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D9488),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+                ],
+              ),
+              const SizedBox(height: 17),
+              _PhaseTrack(phase: _phase),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: running ? null : _run,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D9488),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
-                ),
-                icon: Icon(
-                  _phase == _TestPhase.done || _phase == _TestPhase.error
-                      ? Icons.replay_rounded
-                      : Icons.bolt_rounded,
-                ),
-                label: Text(
-                  running
-                      ? 'Testing your connection…'
-                      : _phase == _TestPhase.done || _phase == _TestPhase.error
-                      ? 'Run test again'
-                      : 'Start speed test',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                  icon: Icon(
+                    _phase == _TestPhase.done || _phase == _TestPhase.error
+                        ? Icons.replay_rounded
+                        : Icons.bolt_rounded,
+                  ),
+                  label: Text(
+                    running
+                        ? 'Testing your connection…'
+                        : _phase == _TestPhase.done ||
+                              _phase == _TestPhase.error
+                        ? 'Run test again'
+                        : 'Start speed test',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -334,12 +349,14 @@ class _SpeedHero extends StatelessWidget {
   const _SpeedHero({
     required this.phase,
     required this.current,
+    required this.currentUnit,
     required this.status,
     required this.color,
     required this.running,
   });
   final _TestPhase phase;
   final double? current;
+  final String currentUnit;
   final String status;
   final Color color;
   final bool running;
@@ -465,9 +482,9 @@ class _SpeedHero extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 5),
-                      const Text(
-                        'Mbps',
-                        style: TextStyle(
+                      Text(
+                        currentUnit,
+                        style: const TextStyle(
                           color: Color(0xFF99F6E4),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -616,7 +633,7 @@ class _Metric extends StatelessWidget {
               ),
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
