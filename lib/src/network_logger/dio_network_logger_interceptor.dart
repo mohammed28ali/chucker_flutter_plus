@@ -7,12 +7,17 @@ import 'network_logger.dart';
 class DioNetworkLoggerInterceptor extends Interceptor {
   DioNetworkLoggerInterceptor({required this.logger});
   final NetworkLogger logger;
+  static const disableLoggingExtraKey = 'network_logger.disabled';
   static const _startKey = 'network_logger.started_at';
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    options.extra[_startKey] = DateTime.now();
-    logger.logRequest(_request(options));
+    try {
+      if (logger.isEnabled) {
+        options.extra[_startKey] = DateTime.now();
+        logger.logRequest(_request(options));
+      }
+    } catch (_) {}
     handler.next(options);
   }
 
@@ -21,31 +26,39 @@ class DioNetworkLoggerInterceptor extends Interceptor {
     Response<dynamic> response,
     ResponseInterceptorHandler handler,
   ) {
-    final request = response.requestOptions;
-    logger.logResponse(
-      _request(request),
-      NetworkResponseLog(
-        statusCode: response.statusCode ?? 0,
-        headers: _headers(response.headers.map),
-        body: response.data,
-      ),
-      DateTime.now().difference(_started(request)),
-    );
+    try {
+      if (logger.isEnabled) {
+        final request = response.requestOptions;
+        logger.logResponse(
+          _request(request),
+          NetworkResponseLog(
+            statusCode: response.statusCode ?? 0,
+            headers: _headers(response.headers.map),
+            body: response.data,
+          ),
+          DateTime.now().difference(_started(request)),
+        );
+      }
+    } catch (_) {}
     handler.next(response);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    final request = err.requestOptions;
-    logger.logError(
-      _request(request),
-      NetworkErrorLog(
-        message: err.message ?? err.type.name,
-        type: err.type.name,
-        body: err.response?.data,
-      ),
-      DateTime.now().difference(_started(request)),
-    );
+    try {
+      if (logger.isEnabled) {
+        final request = err.requestOptions;
+        logger.logError(
+          _request(request),
+          NetworkErrorLog(
+            message: err.message ?? err.type.name,
+            type: err.type.name,
+            body: err.response?.data,
+          ),
+          DateTime.now().difference(_started(request)),
+        );
+      }
+    } catch (_) {}
     handler.next(err);
   }
 
@@ -68,7 +81,7 @@ class DioNetworkLoggerInterceptor extends Interceptor {
               )
               .toList()
         : const [],
-    enabled: request.extra['network_logger.disabled'] != true,
+    enabled: request.extra[disableLoggingExtraKey] != true,
   );
 
   DateTime _started(RequestOptions request) =>

@@ -2,11 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/core.dart';
 import '../../domain/entities/network_transaction.dart';
+import '../../../../network_logging/network_log_models.dart';
+import '../../../../network_logging/network_logger.dart';
 import '../chucker_flutter.dart';
+import '../widgets/share_text.dart';
 import '../widgets/body_viewer.dart';
 import '../widgets/headers_section.dart';
 import '../widgets/key_value_row.dart';
@@ -69,6 +71,7 @@ class _RequestDetailPageState extends State<RequestDetailPage>
             snap: false,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
               onPressed: () => context.pop(),
             ),
             actions: [
@@ -155,7 +158,7 @@ class _RequestDetailPageState extends State<RequestDetailPage>
   }
 
   void _shareCurl(NetworkTransaction t) async {
-    await Share.share(_buildCurl(t));
+    await shareInspectorText(context, _buildCurl(t));
   }
 
   void _onAction(String action, NetworkTransaction t) async {
@@ -181,17 +184,21 @@ class _RequestDetailPageState extends State<RequestDetailPage>
           'requestBody': t.rawRequestBody,
           'responseBody': t.rawResponseBody,
         });
-        await Share.share(json);
+        await shareInspectorText(context, json);
     }
   }
 
-  String _buildCurl(NetworkTransaction t) {
-    final headers = t.requestHeaders.entries
-        .map((e) => "-H '${e.key}: ${e.value}'")
-        .join(' ');
-    final data = t.rawRequestBody != null ? "--data '${t.rawRequestBody}'" : '';
-    return "curl -X ${t.method} $headers $data '${t.uri}'";
-  }
+  String _buildCurl(NetworkTransaction t) =>
+      NetworkLogger(
+        config: NetworkLogConfig(maxBodyLength: t.rawRequestBody?.length ?? 0),
+      ).curlCommand(
+        NetworkRequestLog(
+          method: t.method,
+          url: t.uri,
+          headers: t.requestHeaders,
+          body: t.rawRequestBody,
+        ),
+      );
 }
 
 // ── Tab definitions ──────────────────────────────────────────────────────────

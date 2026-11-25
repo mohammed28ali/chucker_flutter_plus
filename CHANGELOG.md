@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added default inspector setup and idempotent client attachment helpers.
+- Preserved HTTP streaming and bounded captured bodies. Redacted structured fields and URLs before storage.
+- Added notification filtering, permission handling, grouped updates, and transaction tap routing.
+- Made history live and selectable for deletion. Unified console formatting across both public logger APIs.
+
 ## 1.0.5
 
 - Added Linux, macOS, and Windows desktop support and example runner setup.

@@ -1,9 +1,7 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:http/http.dart' as http;
 
+import '../core/body_capture.dart';
+import '../core/observed_http_response.dart';
 import 'network_log_models.dart';
 import 'network_logger.dart';
 
@@ -18,14 +16,27 @@ class LoggingHttpClient extends http.BaseClient {
   final http.Client inner;
   final NetworkLogger logger;
   final bool Function(http.BaseRequest request)? shouldLog;
+  static const disableLoggingHeader = 'x-network-logger-disabled';
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final disabled =
+        request.headers.remove(disableLoggingHeader)?.toLowerCase() == 'true';
+    if (disabled || !logger.isEnabled) return inner.send(request);
+    if (!_shouldLog(request)) return inner.send(request);
     final started = DateTime.now();
     final parts = <NetworkMultipartPart>[];
     Object? body;
     if (request is http.Request) {
-      body = request.body;
+      if (logger.config.logRequestBody) {
+        final captured = BodyCapture.from(
+          request.bodyBytes,
+          limit: logger.config.maxBodyLength * 4,
+          contentType: request.headers['content-type'],
+          includeBinary: false,
+        );
+        body = captured.omitted ? '<body omitted>' : captured.text;
+      }
     } else if (request is http.MultipartRequest) {
       parts.addAll(
         request.fields.entries.map(
@@ -48,7 +59,6 @@ class LoggingHttpClient extends http.BaseClient {
       headers: request.headers,
       body: body,
       multipartParts: parts,
-      enabled: shouldLog?.call(request) ?? true,
     );
     logger.logRequest(logRequest);
     late http.StreamedResponse response;
@@ -58,7 +68,7 @@ class LoggingHttpClient extends http.BaseClient {
       logger.logError(
         logRequest,
         NetworkErrorLog(
-          message: error.toString(),
+          message: logger.config.logErrorMessage ? error.toString() : '',
           type: error.runtimeType.toString(),
         ),
         DateTime.now().difference(started),
@@ -66,60 +76,53 @@ class LoggingHttpClient extends http.BaseClient {
       rethrow;
     }
 
-    final bytes = BytesBuilder(copy: false);
-    final forwarded = response.stream.transform(
-      StreamTransformer<List<int>, List<int>>.fromHandlers(
-        handleData: (chunk, sink) {
-          bytes.add(chunk);
-          sink.add(chunk);
-        },
-        handleError: (Object error, StackTrace stack, sink) {
-          logger.logError(
-            logRequest,
-            NetworkErrorLog(
-              message: error.toString(),
-              type: error.runtimeType.toString(),
-            ),
-            DateTime.now().difference(started),
-          );
-          sink.addError(error, stack);
-        },
-        handleDone: (sink) {
-          logger.logResponse(
-            logRequest,
-            NetworkResponseLog(
-              statusCode: response.statusCode,
-              headers: response.headers,
-              body: _decode(bytes.toBytes(), response.headers['content-type']),
-            ),
-            DateTime.now().difference(started),
-          );
-          sink.close();
-        },
+    final captureBody =
+        logger.config.logResponses && logger.config.logResponseBody;
+    return observeHttpResponse(
+      response,
+      bodyLimit: logger.config.maxBodyLength * 4,
+      captureBody: captureBody,
+      onError: (error, _) => logger.logError(
+        logRequest,
+        NetworkErrorLog(
+          message: logger.config.logErrorMessage ? error.toString() : '',
+          type: error.runtimeType.toString(),
+        ),
+        DateTime.now().difference(started),
+      ),
+      onDone: (bytes) => logger.logResponse(
+        logRequest,
+        NetworkResponseLog(
+          statusCode: response.statusCode,
+          headers: response.headers,
+          body: captureBody
+              ? _decode(bytes, response.headers['content-type'])
+              : null,
+        ),
+        DateTime.now().difference(started),
       ),
     );
-    return http.StreamedResponse(
-      forwarded,
-      response.statusCode,
-      contentLength: response.contentLength,
-      request: response.request,
-      headers: response.headers,
-      isRedirect: response.isRedirect,
-      persistentConnection: response.persistentConnection,
-      reasonPhrase: response.reasonPhrase,
-    );
+  }
+
+  bool _shouldLog(http.BaseRequest request) {
+    try {
+      return shouldLog?.call(request) ?? true;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
   void close() => inner.close();
 
-  Object _decode(Uint8List bytes, String? contentType) {
-    if (contentType?.toLowerCase().contains('text') == true ||
-        contentType?.toLowerCase().contains('json') == true) {
-      try {
-        return utf8.decode(bytes);
-      } catch (_) {}
-    }
-    return '<${bytes.length} binary bytes>';
+  Object? _decode(BoundedBodyBytes bytes, String? contentType) {
+    if (bytes.omitted) return '<body omitted: exceeds log limit>';
+    final body = BodyCapture.from(
+      bytes.takeBytes(),
+      limit: bytes.limit,
+      contentType: contentType,
+      includeBinary: false,
+    );
+    return body.omitted ? '<body omitted>' : body.text;
   }
 }

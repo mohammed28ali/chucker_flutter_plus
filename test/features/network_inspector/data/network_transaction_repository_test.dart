@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:chucker_flutter_plus/src/features/network_inspector/data/datasources/local/network_transaction_local_data_source.dart';
 import 'package:chucker_flutter_plus/src/features/network_inspector/data/repositories/network_transaction_repository_impl.dart';
 import 'package:chucker_flutter_plus/src/features/network_inspector/domain/entities/network_transaction.dart';
@@ -10,6 +11,8 @@ void main() {
   setUpAll(() async {
     hiveDirectory = await Directory.systemTemp.createTemp('chucker_hive_test');
   });
+  tearDownAll(() => hiveDirectory.delete(recursive: true));
+
   NetworkTransaction transaction(String id, DateTime startedAt) =>
       NetworkTransaction(
         id: id,
@@ -32,17 +35,20 @@ void main() {
     );
     final first = DateTime.utc(2025);
 
-    await repository.save(transaction('one', first));
-    await repository.save(
-      transaction('two', first.add(const Duration(seconds: 1))),
-    );
-    await repository.save(
-      transaction('three', first.add(const Duration(seconds: 2))),
-    );
+    await Future.wait([
+      repository.save(transaction('one', first)),
+      repository.save(
+        transaction('two', first.add(const Duration(seconds: 1))),
+      ),
+      repository.save(
+        transaction('three', first.add(const Duration(seconds: 2))),
+      ),
+    ]);
 
     final records = await repository.getAll();
 
     expect(records.map((record) => record.id), ['three', 'two']);
+    await repository.dispose();
   });
 
   test('clears persisted records', () async {
@@ -56,5 +62,6 @@ void main() {
     await repository.clear();
 
     expect(await repository.getAll(), isEmpty);
+    await repository.dispose();
   });
 }

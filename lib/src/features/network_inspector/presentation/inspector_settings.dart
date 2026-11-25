@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:hive_ce_flutter/hive_flutter.dart';
+
 import '../data/datasources/local/chucker_hive.dart';
 
 enum BannerPosition { top, bottom }
@@ -48,10 +48,13 @@ class InspectorSettingsStore extends ValueNotifier<InspectorSettings> {
   Box<Map>? _box;
   Future<Box<Map>> get _open async {
     await ChuckerHive.initialize();
-    return _box ??= await Hive.openBox<Map>(_boxName);
+    return _box ??= await Hive.openBox<Map>(
+      _boxName,
+      path: ChuckerHive.storagePath,
+    );
   }
 
-  Future<void> load() async {
+  Future<void> load({int defaultMaximumEntries = 100}) async {
     final p = (await _open).get('settings') ?? const <String, dynamic>{};
     value = InspectorSettings(
       inAppBanner: p['banner'] as bool? ?? true,
@@ -62,8 +65,13 @@ class InspectorSettingsStore extends ValueNotifier<InspectorSettings> {
       bannerPosition: (p['position'] as String? ?? 'top') == 'bottom'
           ? BannerPosition.bottom
           : BannerPosition.top,
-      maximumEntries: p['max'] as int? ?? 100,
+      maximumEntries: p['max'] as int? ?? defaultMaximumEntries,
     );
+  }
+
+  Future<void> close() async {
+    await _box?.close();
+    _box = null;
   }
 
   Future<void> save(InspectorSettings next) async {

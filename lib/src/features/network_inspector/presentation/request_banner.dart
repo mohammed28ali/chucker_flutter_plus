@@ -17,17 +17,19 @@ class RequestBannerController {
   int _pending = 0;
   BuildContext? get context => _context;
 
-  void bind(BuildContext context) {
+  OverlayState? get overlay => _overlay?.mounted == true ? _overlay : null;
+
+  void bind(BuildContext context, {OverlayState? overlay}) {
+    final next = overlay ?? Overlay.maybeOf(context, rootOverlay: true);
+    if (_entryOverlay != null && next != _entryOverlay) dismiss();
     _context = context;
-    _overlay = Overlay.maybeOf(context, rootOverlay: true);
-    // A navigator can replace its Overlay while the banner is visible. Move
-    // the entry to the new Overlay so later requests still reach the screen.
-    final entry = _entry;
-    if (entry != null && _overlay != null && _entryOverlay != _overlay) {
-      entry.remove();
-      _overlay!.insert(entry);
-      _entryOverlay = _overlay;
-    }
+    _overlay = next;
+  }
+
+  void reset() {
+    dismiss();
+    _context = null;
+    _overlay = null;
   }
 
   void show(
@@ -35,7 +37,8 @@ class RequestBannerController {
     InspectorSettings settings,
     VoidCallback details,
   ) {
-    if (_overlay == null) return;
+    final currentOverlay = overlay;
+    if (currentOverlay == null) return;
     if (_entry != null) {
       _pending++;
       _entry!.markNeedsBuild();
@@ -50,14 +53,15 @@ class RequestBannerController {
         onDismiss: dismiss,
       ),
     );
-    _overlay!.insert(_entry!);
-    _entryOverlay = _overlay;
+    currentOverlay.insert(_entry!);
+    _entryOverlay = currentOverlay;
     _timer = Timer(settings.bannerDuration, dismiss);
   }
 
   void dismiss() {
     _timer?.cancel();
     _entry?.remove();
+    _entry?.dispose();
     _entry = null;
     _entryOverlay = null;
     _pending = 0;
@@ -130,11 +134,13 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
         ? InspectorColors.status3xx
         : InspectorColors.status2xx;
 
+    final padding = MediaQuery.paddingOf(context);
+    final colors = Theme.of(context).colorScheme;
     return Positioned(
       left: AppSizes.paddingMd,
       right: AppSizes.paddingMd,
-      top: widget.top ? 44 : null,
-      bottom: widget.top ? null : 24,
+      top: widget.top ? padding.top + 8 : null,
+      bottom: widget.top ? null : padding.bottom + 8,
       child: FadeTransition(
         opacity: _fade,
         child: SlideTransition(
@@ -147,7 +153,7 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
               elevation: 8,
               shadowColor: Colors.black.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(AppSizes.radiusBanner),
-              color: Colors.white,
+              color: colors.surfaceContainerHigh,
               child: InkWell(
                 borderRadius: BorderRadius.circular(AppSizes.radiusBanner),
                 onTap: _dismiss,
@@ -175,20 +181,19 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Row(
+                            Wrap(
+                              spacing: AppSizes.gap6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 _MethodBadge(t.method),
-                                const SizedBox(width: AppSizes.gap6),
                                 _StatusLabel(t.statusCode, t.error, stripColor),
-                                const Spacer(),
                                 Text(
                                   _fmtDuration(t.duration),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: AppSizes.textSm,
-                                    color: Colors.black54,
+                                    color: colors.onSurfaceVariant,
                                   ),
                                 ),
-                                const SizedBox(width: AppSizes.gap8),
                               ],
                             ),
                             const SizedBox(height: AppSizes.gap4),
@@ -196,10 +201,10 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
                               t.uri.toString(),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: AppSizes.textSmPlus,
-                                color: Colors.black87,
+                                color: colors.onSurface,
                               ),
                             ),
                             if (widget.extra > 0) ...[
@@ -224,12 +229,11 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
                         widget.onDetails();
                       },
                       style: TextButton.styleFrom(
-                        foregroundColor: stripColor,
+                        foregroundColor: colors.primary,
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSizes.paddingMd,
                           vertical: AppSizes.paddingSm,
                         ),
-                        minimumSize: Size.zero,
                       ),
                       child: const Text(
                         AppStrings.details,

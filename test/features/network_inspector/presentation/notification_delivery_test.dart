@@ -55,6 +55,15 @@ void main() {
       NotificationDelivery.statusBar,
     );
   });
+  test('foreground status bar mode overrides the banner', () {
+    expect(
+      ChuckerFlutterPlus.notificationDelivery(
+        isForeground: true,
+        settings: const InspectorSettings(statusBarWhileForeground: true),
+      ),
+      NotificationDelivery.statusBar,
+    );
+  });
   test('both disabled is silent', () {
     expect(
       delivery(true, banner: false, status: false),

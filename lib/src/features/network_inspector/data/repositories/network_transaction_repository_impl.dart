@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../domain/entities/network_transaction.dart';
 import '../../domain/repositories/network_transaction_repository.dart';
 import '../datasources/local/network_transaction_local_data_source.dart';
@@ -11,37 +13,92 @@ class NetworkTransactionRepositoryImpl implements NetworkTransactionRepository {
   });
 
   final NetworkTransactionLocalDataSource _localDataSource;
-  final int maximumEntries;
-  final Duration? retention;
+  int maximumEntries;
+  Duration? retention;
+  final changes = ValueNotifier<int>(0);
 
-  @override
-  Future<List<NetworkTransaction>> getAll() async {
-    final transactions = (await _localDataSource.readAll()).toList();
-    transactions.sort((a, b) => b.startedAt.compareTo(a.startedAt));
-    return _prune(transactions);
+  // Queue reads and mutations so configuration changes, deletion and saves
+  // cannot race. An individual storage error does not poison the queue.
+  Future<void> _pending = Future.value();
+  Map<String, DateTime>? _timestamps;
+
+  Future<T> _run<T>(Future<T> Function() action) {
+    final result = _pending.then((_) => action());
+    _pending = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
   }
 
+  Future<void> configure({
+    required int maximumEntries,
+    required Duration? retention,
+    required int maximumBodyBytes,
+    required bool prune,
+  }) => _run(() async {
+    this.maximumEntries = maximumEntries;
+    this.retention = retention;
+    _localDataSource.maximumBodyBytes = maximumBodyBytes;
+    if (prune) await _prune(await _index());
+    changes.value++;
+  });
+
   @override
-  Future<void> save(NetworkTransaction transaction) async {
-    if (maximumEntries <= 0) return;
-    final transactions = (await _localDataSource.readAll()).toList();
-    transactions.add(NetworkTransactionModel.fromEntity(transaction));
-    transactions.sort((a, b) => b.startedAt.compareTo(a.startedAt));
-    await _localDataSource.writeAll(
-      _prune(transactions).take(maximumEntries).toList(),
-    );
+  Future<List<NetworkTransaction>> getAll() => _run(() async {
+    await _prune(await _index());
+    final records = await _localDataSource.readAll();
+    return records..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+  });
+
+  @override
+  Future<void> save(NetworkTransaction transaction) => _run(() async {
+    if (maximumEntries == 0 || _expired(transaction.startedAt)) return;
+    final timestamps = await _index();
+    await _localDataSource.put(NetworkTransactionModel.fromEntity(transaction));
+    timestamps[transaction.id] = transaction.startedAt;
+    await _prune(timestamps);
+    changes.value++;
+  });
+
+  Future<void> delete(Set<String> ids) => _run(() async {
+    await _localDataSource.deleteAll(ids);
+    _timestamps?.removeWhere((id, _) => ids.contains(id));
+    changes.value++;
+  });
+
+  @override
+  Future<void> clear() => _run(() async {
+    await _localDataSource.clear();
+    _timestamps?.clear();
+    changes.value++;
+  });
+
+  @override
+  Future<void> dispose() => _run(() async {
+    await _localDataSource.close();
+    _timestamps = null;
+  });
+
+  Future<Map<String, DateTime>> _index() async => _timestamps ??= {
+    for (final value in await _localDataSource.readAll())
+      value.id: value.startedAt,
+  };
+
+  bool _expired(DateTime startedAt) {
+    final age = retention;
+    return age != null && startedAt.isBefore(DateTime.now().subtract(age));
   }
 
-  @override
-  Future<void> clear() => _localDataSource.clear();
-
-  @override
-  Future<void> dispose() => _localDataSource.close();
-
-  List<NetworkTransactionModel> _prune(List<NetworkTransactionModel> values) {
-    final limit = retention;
-    if (limit == null) return values;
-    final cutoff = DateTime.now().subtract(limit);
-    return values.where((value) => !value.startedAt.isBefore(cutoff)).toList();
+  Future<void> _prune(Map<String, DateTime> timestamps) async {
+    final newest = timestamps.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final retained = newest
+        .where((entry) => !_expired(entry.value))
+        .take(maximumEntries)
+        .map((entry) => entry.key)
+        .toSet();
+    final removed = timestamps.keys
+        .where((id) => !retained.contains(id))
+        .toSet();
+    await _localDataSource.deleteAll(removed);
+    timestamps.removeWhere((id, _) => removed.contains(id));
   }
 }

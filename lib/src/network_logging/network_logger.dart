@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'log_redactor.dart';
@@ -25,21 +26,21 @@ class NetworkLogger {
   final LogRedactor redactor;
   // ignore: avoid_print
   static void _defaultPrinter(String message) => print(message);
-  bool get _enabled =>
+  bool get isEnabled =>
       config.forceLogging ||
       (config.enabled && (kDebugMode || config.enableOnRelease));
 
   void logRequest(NetworkRequestLog request) => _safe(() {
-    if (!_enabled || request.loggingDisabled || !config.logRequests) return;
+    if (!isEnabled || request.loggingDisabled || !config.logRequests) return;
     final b = StringBuffer(
-      '${config.requestColor}┌─ ${request.method} ${request.url}\n',
+      '${config.requestColor}┌─ ${request.method} ${redactor.redactUri(request.url)}\n',
     );
     if (config.logCurlCommand) b.writeln('│ cURL: ${curlCommand(request)}');
     if (config.logRequestHeaders) {
       b.writeln('│ Headers: ${_json(redactor.redactHeaders(request.headers))}');
     }
     if (config.logRequestBody) {
-      b.writeln('│ Body: ${_formatBody(request.body)}');
+      b.writeln('│ Body: ${_formatBody(request.body, request.headers)}');
       if (request.multipartParts.isNotEmpty) {
         b.writeln('│ Multipart: ${_json(_multipart(request.multipartParts))}');
       }
@@ -49,10 +50,13 @@ class NetworkLogger {
   });
 
   void logResponse(NetworkResponseLog response) => _safe(() {
-    if (!_enabled || response.request.loggingDisabled || !config.logResponses) {
+    if (!isEnabled ||
+        response.request.loggingDisabled ||
+        !config.logResponses) {
       return;
     }
     final status = response.statusCode;
+    final duration = response.duration;
     final color = status >= 500
         ? config.errorColor
         : status >= 400
@@ -61,9 +65,9 @@ class NetworkLogger {
         ? '\x1B[36m'
         : config.responseColor;
     final b = StringBuffer(
-      '$color┌─ ${response.request.method} ${response.request.url} [$status] ${response.duration.inMilliseconds}ms\n',
+      '$color┌─ ${response.request.method} ${redactor.redactUri(response.request.url)} [$status]${_timing(duration)}\n',
     );
-    if (response.duration >= config.slowRequestThreshold) {
+    if (duration >= config.slowRequestThreshold) {
       b.writeln(
         '│ SLOW REQUEST (>${config.slowRequestThreshold.inMilliseconds}ms)',
       );
@@ -74,23 +78,29 @@ class NetworkLogger {
       );
     }
     if (config.logResponseBody) {
-      b.writeln('│ Body: ${_formatBody(response.body)}');
+      b.writeln('│ Body: ${_formatBody(response.body, response.headers)}');
     }
     b.write('└─${config.resetColor}');
     printer(b.toString());
   });
 
   void logError(NetworkErrorLog error) => _safe(() {
-    if (!_enabled || error.request.loggingDisabled || !config.logErrors) return;
+    if (!isEnabled || error.request.loggingDisabled || !config.logErrors) {
+      return;
+    }
+    final duration = error.duration;
     final b = StringBuffer(
-      '${config.errorColor}┌─ ${error.request.method} ${error.request.url} ERROR ${error.statusCode ?? ''} ${error.duration.inMilliseconds}ms\n',
+      '${config.errorColor}┌─ ${error.request.method} ${redactor.redactUri(error.request.url)} ERROR ${error.statusCode ?? ''}${_timing(duration)}\n',
     );
-    b.writeln('│ ${error.type ?? error.error.runtimeType}: ${error.error}');
+    final message = config.logErrorMessage ? ': ${error.error}' : '';
+    b.writeln('│ ${error.type ?? error.error.runtimeType}$message');
     if (config.logResponseHeaders && error.headers.isNotEmpty) {
       b.writeln('│ Headers: ${_json(redactor.redactHeaders(error.headers))}');
     }
-    if (config.logErrorBody) b.writeln('│ Body: ${_formatBody(error.body)}');
-    if (error.duration >= config.slowRequestThreshold) {
+    if (config.logErrorBody) {
+      b.writeln('│ Body: ${_formatBody(error.body, error.headers)}');
+    }
+    if (duration >= config.slowRequestThreshold) {
       b.writeln(
         '│ SLOW REQUEST (>${config.slowRequestThreshold.inMilliseconds}ms)',
       );
@@ -101,66 +111,98 @@ class NetworkLogger {
 
   String curlCommand(NetworkRequestLog request) {
     final parts = <String>['curl', '-X', _quote(request.method)];
-    for (final entry in redactor.redactHeaders(request.headers).entries) {
-      parts.addAll(['-H', _quote('${entry.key}: ${entry.value}')]);
+    if (config.logRequestHeaders) {
+      for (final entry in redactor.redactHeaders(request.headers).entries) {
+        if (const {
+          'content-length',
+          'transfer-encoding',
+        }.contains(entry.key.toLowerCase())) {
+          continue;
+        }
+        parts.addAll(['-H', _quote('${entry.key}: ${entry.value}')]);
+      }
     }
-    if (request.body != null && request.multipartParts.isEmpty) {
-      parts.addAll([
-        '--data-raw',
-        _quote(_bodyString(_redactBody(request.body))),
-      ]);
+    if (config.logRequestBody &&
+        request.body != null &&
+        request.multipartParts.isEmpty) {
+      final text = _preparedBody(request.body, request.headers, pretty: false);
+      if (text.length <= config.maxBodyLength &&
+          request.body is! Stream &&
+          request.body is! List<int>) {
+        parts.addAll(['--data-raw', _quote(text)]);
+      }
     }
-    for (final part in request.multipartParts) {
-      final value =
-          redactor.sensitiveJsonKeys.any(
-            (key) => key.toLowerCase() == part.name.toLowerCase(),
-          )
-          ? redactor.replacement
-          : redactor.redactValue(part.value);
-      parts.addAll([
-        '-F',
-        _quote(
-          part.fileName != null
-              ? '${part.name}=@${part.fileName}'
-              : '${part.name}=${value ?? ''}',
-        ),
-      ]);
+    if (config.logRequestBody) {
+      for (final part in request.multipartParts) {
+        final sensitive = redactor.isSensitiveKey(part.name);
+        final file = !sensitive && part.fileName != null;
+        final value = sensitive
+            ? redactor.replacement
+            : file
+            ? '@${part.fileName}'
+            : _preparedBody(part.value, const {}, pretty: false);
+        if (value.length <= config.maxBodyLength) {
+          parts.addAll([
+            file ? '-F' : '--form-string',
+            _quote('${part.name}=$value'),
+          ]);
+        }
+      }
     }
-    parts.add(_quote(request.url.toString()));
+    parts.add(_quote(redactor.redactUri(request.url).toString()));
     return parts.join(' ');
   }
 
-  String _formatBody(Object? value) {
+  String _formatBody(Object? value, Map<String, Object?> headers) {
     if (value == null) return '<empty>';
-    final text = _bodyString(_redactBody(value));
+    final text = _preparedBody(value, headers);
     if (text.length <= config.maxBodyLength) return text;
     return '${text.substring(0, config.maxBodyLength)}… [truncated ${text.length - config.maxBodyLength} chars]';
   }
 
-  Object? _redactBody(Object? value) {
-    if (value is String) {
-      try {
-        return redactor.redactValue(jsonDecode(value));
-      } on FormatException {
-        return value;
+  String _preparedBody(
+    Object? value,
+    Map<String, Object?> headers, {
+    bool pretty = true,
+  }) {
+    if (value is Stream) return '<stream body omitted>';
+    if (value is List<int>) return '<${value.length} binary bytes>';
+    String? type;
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == 'content-type') {
+        final header = entry.value;
+        type = header is Iterable
+            ? header.firstOrNull?.toString()
+            : header?.toString();
+        break;
       }
     }
-    return redactor.redactValue(value);
+    final redacted = redactor.redactBody(value, contentType: type);
+    return redacted is String
+        ? redacted
+        : pretty
+        ? _json(redacted)
+        : jsonEncode(redacted);
   }
 
-  String _bodyString(Object? value) => value is String
-      ? value
-      : const JsonEncoder.withIndent('  ').convert(value);
+  String _timing(Duration duration) =>
+      config.logTiming ? ' ${duration.inMilliseconds}ms' : '';
+
   String _json(Object? value) =>
       const JsonEncoder.withIndent('  ').convert(value);
+
   List<Map<String, Object?>> _multipart(List<NetworkMultipartPart> parts) => [
-    for (final p in parts)
+    for (final part in parts)
       {
-        'name': p.name,
-        if (p.value != null) 'value': redactor.redactValue(p.value),
-        if (p.fileName != null) 'fileName': p.fileName,
-        if (p.contentType != null) 'contentType': p.contentType,
-        if (p.length != null) 'length': p.length,
+        'name': part.name,
+        if (redactor.isSensitiveKey(part.name))
+          'value': redactor.replacement
+        else ...{
+          if (part.value != null) 'value': _formatBody(part.value, const {}),
+          if (part.fileName != null) 'fileName': part.fileName,
+          if (part.contentType != null) 'contentType': part.contentType,
+          if (part.length != null) 'length': part.length,
+        },
       },
   ];
   void _safe(void Function() action) {

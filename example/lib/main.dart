@@ -1,10 +1,10 @@
+import 'package:chopper/chopper.dart' as chopper;
 import 'package:chucker_flutter_plus/chucker_flutter_plus.dart';
-import 'package:dio/dio.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 
 import 'core/config/demo_config.dart';
-import 'data/datasources/posts_remote_data_source.dart';
-import 'data/repositories/posts_repository_impl.dart';
+import 'core/di/dependency_injection.dart';
 import 'domain/repositories/posts_repository.dart';
 import 'domain/usecases/create_demo_post.dart';
 import 'domain/usecases/get_missing_post.dart';
@@ -15,14 +15,18 @@ import 'presentation/models/dashboard_state.dart';
 import 'presentation/models/post.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await ChuckerFlutterPlus.initialize(
-    maximumEntries: 200,
-    retention: const Duration(days: 7),
-    enableNotifications: true,
-    redactHeaders: {'authorization', 'cookie', 'set-cookie', 'x-api-key'},
+  await Inspector.init(
+    config: const InspectorConfig(
+      showStatusBarNotification: true,
+      requestNotificationPermission: bool.fromEnvironment(
+        'CHUCKER_REQUEST_PERMISSION',
+      ),
+      notifyOnlyOnError: true,
+    ),
   );
-  runApp(ChuckerExampleApp(repository: _createPostsRepository()));
+  runApp(
+    ChuckerExampleApp(repository: DependencyInjection.createPostsRepository()),
+  );
 }
 
 class ChuckerExampleApp extends StatelessWidget {
@@ -33,7 +37,7 @@ class ChuckerExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Chucker Plus',
-    navigatorObservers: [ChuckerFlutterPlus.navigatorObserver],
+    navigatorKey: Inspector.navigatorKey,
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,
@@ -51,8 +55,9 @@ class ChuckerExampleApp extends StatelessWidget {
         getPost: GetPost(repository),
         createDemoPost: CreateDemoPost(repository),
         getMissingPost: GetMissingPost(repository),
+      ),
     ),
-  ));
+  );
 }
 
 final class DashboardPage extends StatefulWidget {
@@ -67,15 +72,23 @@ final class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   DashboardViewModel get _viewModel => widget.viewModel;
   DashboardState get _state => _viewModel.state;
+  late final http.Client _http;
+  late final chopper.ChopperClient _chopper;
+  String? _clientMessage;
+  bool _clientLoading = false;
 
   @override
   void initState() {
     super.initState();
     _viewModel.addListener(_onStateChanged);
+    _http = DependencyInjection.createHttpClient();
+    _chopper = DependencyInjection.createChopperClient();
   }
 
   @override
   void dispose() {
+    _http.close();
+    _chopper.dispose();
     _viewModel
       ..removeListener(_onStateChanged)
       ..dispose();
@@ -94,61 +107,226 @@ class _DashboardPageState extends State<DashboardPage> {
       showDragHandle: true,
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(22, 4, 22, 30),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('POST #${result.id}', style: const TextStyle(fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 10),
-          Text(result.title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text(result.body, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.5)),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'POST #${result.id}',
+              style: const TextStyle(
+                fontSize: 11,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              result.title,
+              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              result.body,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  Future<void> _runClient(String name, Future<int> Function() send) async {
+    if (_clientLoading) return;
+    setState(() {
+      _clientLoading = true;
+      _clientMessage = '$name is loading…';
+    });
+    String message;
+    try {
+      final status = await send().timeout(DemoConfig.requestTimeout);
+      message = '$name returned HTTP $status';
+    } catch (error) {
+      message = '$name failed (${error.runtimeType})';
+    }
+    if (!mounted) return;
+    setState(() {
+      _clientLoading = false;
+      _clientMessage = message;
+    });
+  }
+
+  Future<void> _sendHttp() => _runClient('package:http', () async {
+    final response = await _http.get(
+      Uri.parse('${DemoConfig.apiBaseUrl}/posts/1'),
+    );
+    return response.statusCode;
+  });
+
+  Future<void> _sendChopper() => _runClient('Chopper', () async {
+    final base = Uri.parse(DemoConfig.apiBaseUrl);
+    final request = chopper.Request('GET', Uri.parse('/posts/1'), base);
+    final response = await _chopper.send<String, String>(request);
+    return response.statusCode;
+  });
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    void openInspector() => ChuckerFlutterPlus.showInspector(context);
+    void openInspector() => Inspector.show(context);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 22,
-        title: Row(children: [
-          Container(width: 38, height: 38, decoration: BoxDecoration(color: colors.primary, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.bolt_rounded, color: Colors.white)),
-          const SizedBox(width: 11),
-          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Chucker Plus', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            Text('NETWORK PLAYGROUND', style: TextStyle(fontSize: 9, letterSpacing: 1.3, color: Color(0xFF77758A))),
-          ]),
-        ]),
-        actions: [IconButton.filledTonal(tooltip: 'Open network inspector', onPressed: openInspector, icon: const Icon(Icons.network_check_rounded)), const SizedBox(width: 16)],
+        title: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: colors.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.bolt_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 11),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Chucker Plus',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  'NETWORK PLAYGROUND',
+                  style: TextStyle(
+                    fontSize: 9,
+                    letterSpacing: 1.3,
+                    color: Color(0xFF77758A),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          IconButton.filledTonal(
+            tooltip: 'Open network inspector',
+            onPressed: openInspector,
+            icon: const Icon(Icons.network_check_rounded),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: SafeArea(
-        child: ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 32), children: [
-          _HeroCard(onOpen: openInspector),
-          const SizedBox(height: 25),
-          const _SectionHeading(eyebrow: 'MAKE A REQUEST', title: 'Try the inspector'),
-          const SizedBox(height: 13),
-          _RequestTile(icon: Icons.view_list_rounded, tint: const Color(0xFF6658E8), title: 'Fetch recent posts', subtitle: 'GET  /posts?_limit=8', onTap: _viewModel.fetchPosts),
-          _RequestTile(icon: Icons.add_rounded, tint: const Color(0xFF208A70), title: 'Create a post', subtitle: 'POST  /posts', onTap: _viewModel.createPost),
-          _RequestTile(icon: Icons.warning_amber_rounded, tint: const Color(0xFFD88724), title: 'Trigger a not-found response', subtitle: 'GET  /posts/0  ·  expected 404', onTap: _viewModel.fetchMissingPost),
-          if (_state.message != null) ...[
-            const SizedBox(height: 8),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), decoration: BoxDecoration(color: colors.secondaryContainer, borderRadius: BorderRadius.circular(12)), child: Row(children: [
-              if (_state.isLoading) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) else const Icon(Icons.check_circle_outline_rounded, size: 18),
-              const SizedBox(width: 9), Expanded(child: Text(_state.message!, style: const TextStyle(fontSize: 13))),
-            ])),
-          ],
-          if (_state.posts.isNotEmpty) ...[
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          children: [
+            _HeroCard(onOpen: openInspector),
             const SizedBox(height: 25),
-            _SectionHeading(eyebrow: 'LIVE RESPONSE', title: 'Posts', trailing: '${_state.posts.length} items'),
-            const SizedBox(height: 12),
-            ..._state.posts.take(5).map((post) => _PostCard(title: post.title, body: post.body, onTap: () => _showPost(post))),
+            const _SectionHeading(
+              eyebrow: 'MAKE A REQUEST',
+              title: 'Try the inspector',
+            ),
+            const SizedBox(height: 13),
+            _RequestTile(
+              icon: Icons.view_list_rounded,
+              tint: const Color(0xFF6658E8),
+              title: 'Fetch recent posts',
+              subtitle: 'GET  /posts?_limit=8',
+              onTap: _viewModel.fetchPosts,
+            ),
+            _RequestTile(
+              icon: Icons.add_rounded,
+              tint: const Color(0xFF208A70),
+              title: 'Create a post',
+              subtitle: 'POST  /posts',
+              onTap: _viewModel.createPost,
+            ),
+            _RequestTile(
+              icon: Icons.warning_amber_rounded,
+              tint: const Color(0xFFD88724),
+              title: 'Trigger a not-found response',
+              subtitle: 'GET  /posts/0  ·  expected 404',
+              onTap: _viewModel.fetchMissingPost,
+            ),
+            _RequestTile(
+              icon: Icons.http,
+              tint: const Color(0xFF208A70),
+              title: 'Fetch with package:http',
+              subtitle: 'Inspector and console',
+              onTap: _sendHttp,
+            ),
+            _RequestTile(
+              icon: Icons.terminal,
+              tint: const Color(0xFF6658E8),
+              title: 'Fetch with Chopper',
+              subtitle: 'Console',
+              onTap: _sendChopper,
+            ),
+            if (_clientMessage case final message?)
+              Semantics(liveRegion: true, child: Text(message)),
+            if (_state.message != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.secondaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    if (_state.isLoading)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      const Icon(Icons.check_circle_outline_rounded, size: 18),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        _state.message!,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (_state.posts.isNotEmpty) ...[
+              const SizedBox(height: 25),
+              _SectionHeading(
+                eyebrow: 'LIVE RESPONSE',
+                title: 'Posts',
+                trailing: '${_state.posts.length} items',
+              ),
+              const SizedBox(height: 12),
+              ..._state.posts
+                  .take(5)
+                  .map(
+                    (post) => _PostCard(
+                      title: post.title,
+                      body: post.body,
+                      onTap: () => _showPost(post),
+                    ),
+                  ),
+            ],
+            const SizedBox(height: 23),
+            _TipCard(onOpen: openInspector),
           ],
-          const SizedBox(height: 23),
-          _TipCard(onOpen: openInspector),
-        ]),
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(onPressed: openInspector, icon: const Icon(Icons.query_stats_rounded), label: const Text('Inspect traffic')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: openInspector,
+        icon: const Icon(Icons.query_stats_rounded),
+        label: const Text('Inspect traffic'),
+      ),
     );
   }
 }
@@ -448,14 +626,4 @@ class _TipCard extends StatelessWidget {
       ],
     ),
   );
-}
-
-PostsRepository _createPostsRepository() {
-  final dio = Dio(BaseOptions(
-    baseUrl: DemoConfig.apiBaseUrl,
-    connectTimeout: DemoConfig.requestTimeout,
-    receiveTimeout: DemoConfig.requestTimeout,
-    headers: const {'Accept': 'application/json'},
-  ))..interceptors.add(ChuckerDioInterceptor());
-  return PostsRepositoryImpl(PostsRemoteDataSource(dio));
 }

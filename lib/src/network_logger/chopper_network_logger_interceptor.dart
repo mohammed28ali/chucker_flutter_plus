@@ -14,6 +14,9 @@ class ChopperNetworkLoggerInterceptor implements Interceptor {
   @override
   Future<Response<BodyType>> intercept<BodyType>(Chain<BodyType> chain) async {
     final request = chain.request;
+    if (!logger.isEnabled || request.tag == disableRequestTag) {
+      return chain.proceed(request);
+    }
     final started = DateTime.now();
     final logRequest = NetworkRequestLog(
       method: request.method,
@@ -30,7 +33,7 @@ class ChopperNetworkLoggerInterceptor implements Interceptor {
         NetworkResponseLog(
           statusCode: response.statusCode,
           headers: response.headers,
-          body: response.body,
+          body: response.error ?? response.body,
         ),
         DateTime.now().difference(started),
       );
@@ -39,7 +42,7 @@ class ChopperNetworkLoggerInterceptor implements Interceptor {
       logger.logError(
         logRequest,
         NetworkErrorLog(
-          message: error.toString(),
+          message: logger.config.logErrorMessage ? error.toString() : '',
           type: error.runtimeType.toString(),
         ),
         DateTime.now().difference(started),

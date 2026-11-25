@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:hive_ce/hive.dart';
-import 'package:hive_ce_flutter/hive_flutter.dart';
 
+import '../../../../../core/body_capture.dart';
 import '../../models/network_transaction_model.dart';
 import 'chucker_hive.dart';
 
@@ -16,7 +15,7 @@ class NetworkTransactionLocalDataSource {
   });
   static const boxName = 'chucker_flutter_plus_requests';
   final int typeId;
-  final int maximumBodyBytes;
+  int maximumBodyBytes;
   final List<int>? encryptionKey;
   final Future<void> Function()? initializeHive;
   LazyBox<NetworkTransactionModel>? _box;
@@ -35,6 +34,7 @@ class NetworkTransactionLocalDataSource {
     }
     return _box ??= await Hive.openLazyBox<NetworkTransactionModel>(
       boxName,
+      path: ChuckerHive.storagePath,
       encryptionCipher: encryptionKey == null
           ? null
           : HiveAesCipher(Uint8List.fromList(encryptionKey!)),
@@ -47,61 +47,36 @@ class NetworkTransactionLocalDataSource {
     return values.whereType<NetworkTransactionModel>().toList();
   }
 
-  Future<void> writeAll(List<NetworkTransactionModel> transactions) async {
+  Future<void> put(NetworkTransactionModel transaction) async {
     final box = await _open;
-    await box.clear();
-    for (final transaction in transactions) {
-      await box.put(transaction.id, _truncate(transaction));
-    }
+    final request = transaction.rawRequestBody;
+    final response = transaction.rawResponseBody;
+    final requestOmitted = _exceedsLimit(request);
+    final responseOmitted = _exceedsLimit(response);
+    final value = requestOmitted || responseOmitted
+        ? NetworkTransactionModel.fromJson({
+            ...transaction.toJson(),
+            if (requestOmitted) 'rawRequestBody': null,
+            if (responseOmitted) 'rawResponseBody': null,
+            if (requestOmitted) 'requestBodyTruncated': true,
+            if (responseOmitted) 'responseBodyTruncated': true,
+          })
+        : transaction;
+    await box.put(value.id, value);
+  }
+
+  bool _exceedsLimit(String? value) =>
+      value != null &&
+      (maximumBodyBytes == 0 || BodyCapture.utf8Size(value) > maximumBodyBytes);
+
+  Future<void> deleteAll(Iterable<String> ids) async {
+    if (ids.isNotEmpty) await (await _open).deleteAll(ids);
   }
 
   Future<void> clear() async => (await _open).clear();
   Future<void> close() async {
     await _box?.close();
     _box = null;
-  }
-
-  NetworkTransactionModel _truncate(NetworkTransactionModel value) {
-    final contentType = value.contentType?.toLowerCase() ?? '';
-    if (contentType.startsWith('image/') || contentType.startsWith('video/')) {
-      final media = _capMedia(value.rawResponseBody);
-      return NetworkTransactionModel.fromJson({
-        ...value.toJson(),
-        'rawResponseBody': media.$1,
-        'responseBodyTruncated': value.responseBodyTruncated || media.$2,
-      });
-    }
-    final request = _cap(value.rawRequestBody);
-    final response = _cap(value.rawResponseBody);
-    return NetworkTransactionModel.fromJson({
-      ...value.toJson(),
-      'rawRequestBody': request.$1,
-      'rawResponseBody': response.$1,
-      'requestBodyTruncated': request.$2,
-      'responseBodyTruncated': response.$2,
-    });
-  }
-
-  (String?, bool) _capMedia(String? value) {
-    if (value == null) return (null, false);
-    try {
-      final encoded = value.startsWith('data:')
-          ? value.substring(value.indexOf(',') + 1)
-          : value;
-      final bytes = base64Decode(encoded);
-      if (bytes.length <= maximumBodyBytes) return (value, false);
-    } on FormatException {
-      // Preserve non-base64 media bodies only when their stored form is small.
-      if (utf8.encode(value).length <= maximumBodyBytes) return (value, false);
-    }
-    return (null, true);
-  }
-
-  (String?, bool) _cap(String? value) {
-    if (value == null || utf8.encode(value).length <= maximumBodyBytes) {
-      return (value, false);
-    }
-    return (value.substring(0, value.length.clamp(0, maximumBodyBytes)), true);
   }
 }
 

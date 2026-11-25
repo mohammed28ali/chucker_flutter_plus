@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:chucker_flutter_plus/src/config/theme/inspector_colors.dart';
 import 'package:chucker_flutter_plus/src/core/core.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../../config/dependency_injection/chucker_dependencies.dart';
 import '../../domain/entities/network_transaction.dart';
@@ -9,6 +10,7 @@ import '../chucker_flutter.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/method_chip.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/share_text.dart';
 import '../widgets/summary_header.dart';
 
 // ── Sort options ────────────────────────────────────────────────────────────
@@ -37,23 +39,35 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   String _methodFilter = AppStrings.filterAll;
-  String _statusFilter = AppStrings.filterAll; // 'All', '2', '3', '4', '5', 'Error'
+  String _statusFilter =
+      AppStrings.filterAll; // 'All', '2', '3', '4', '5', 'Error'
   bool _errorsOnly = false;
   _SortMode _sort = _SortMode.newest;
   bool _openedInitial = false;
   final Set<String> _selected = {};
   bool _selectMode = false;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _reload();
+    _future = widget.dependencies.transactions.getAll();
+    widget.dependencies.transactions.changes.addListener(_scheduleReload);
   }
 
   @override
   void dispose() {
+    widget.dependencies.transactions.changes.removeListener(_scheduleReload);
+    _refreshTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _scheduleReload() {
+    _refreshTimer ??= Timer(const Duration(milliseconds: 250), () {
+      _refreshTimer = null;
+      _reload();
+    });
   }
 
   void _reload() =>
@@ -62,16 +76,17 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
   Future<void> _clearAll() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      useRootNavigator: false,
+      builder: (dialogContext) => AlertDialog(
         title: const Text(AppStrings.clearLogsTitle),
         content: const Text(AppStrings.clearLogsMessage),
         actions: [
           TextButton(
-            onPressed: () => context.pop(false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text(AppStrings.cancel),
           ),
           FilledButton(
-            onPressed: () => context.pop(true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
@@ -80,20 +95,31 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
         ],
       ),
     );
-    if (ok == true) {
-      await widget.dependencies.transactions.clear();
+    if (ok != true || !mounted) return;
+    await _changeHistory(widget.dependencies.transactions.clear);
+  }
+
+  Future<void> _changeHistory(Future<void> Function() change) async {
+    try {
+      await change();
+      if (!mounted) return;
+      _selected.clear();
+      _selectMode = false;
       _reload();
+    } catch (_) {
+      if (mounted) context.errorSnackBar('Unable to update request history');
     }
   }
 
   List<NetworkTransaction> _filter(List<NetworkTransaction> all) {
-    var list = all.where((t) {
-      final q = _query.toLowerCase();
+    final q = _query.trim().toLowerCase();
+    final list = all.where((t) {
       final matchesQuery =
           q.isEmpty ||
           t.uri.toString().toLowerCase().contains(q) ||
           t.method.toLowerCase().contains(q) ||
-          '${t.statusCode}'.contains(q) ||
+          '${t.statusCode ?? ''}'.contains(q) ||
+          (t.error?.toLowerCase().contains(q) ?? false) ||
           (t.rawResponseBody?.toLowerCase().contains(q) ?? false);
       final matchesMethod =
           _methodFilter == AppStrings.filterAll || t.method == _methodFilter;
@@ -121,108 +147,119 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: _selectMode ? _selectAppBar(theme) : _normalAppBar(theme),
+      appBar: _selectMode ? _selectAppBar() : _normalAppBar(),
       body: FutureBuilder<List<NetworkTransaction>>(
         future: _future,
         builder: (context, snapshot) {
           final all = snapshot.data ?? const <NetworkTransaction>[];
 
-          // Auto-open initial
-          if (!_openedInitial && widget.initiallySelectedId != null) {
-            final match = all
-                .where((t) => t.id == widget.initiallySelectedId)
-                .cast<NetworkTransaction?>()
-                .firstOrNull;
-            if (match != null) {
-              _openedInitial = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _openDetail(context, match);
-              });
-            }
+          final loading = snapshot.connectionState != ConnectionState.done;
+          final requestedId = widget.initiallySelectedId;
+          if (!_openedInitial &&
+              !loading &&
+              !snapshot.hasError &&
+              requestedId != null) {
+            _openedInitial = true;
+            final match = all.where((t) => t.id == requestedId).firstOrNull;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              if (match != null) {
+                _openDetail(context, match);
+              } else {
+                context.errorSnackBar('This request is no longer in history');
+              }
+            });
           }
 
           final filtered = _filter(all);
-          final loading = snapshot.connectionState != ConnectionState.done;
-
-          return Column(
-            children: [
-              // Summary header
-              if (all.isNotEmpty) SummaryHeader(transactions: all),
-              // Search bar
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (v) => setState(() => _query = v),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    hintText: 'Search URL, method, status, body…',
-                    suffixIcon: _query.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.close, size: 18),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() => _query = '');
-                            },
-                          )
-                        : null,
+          return CustomScrollView(
+            slivers: [
+              if (all.isNotEmpty)
+                SliverToBoxAdapter(child: SummaryHeader(transactions: all)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      labelText: 'Search requests',
+                      hintText: 'URL, method, status, error or response body',
+                      suffixIcon: _query.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              tooltip: 'Clear search',
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _query = '');
+                              },
+                            )
+                          : null,
+                    ),
                   ),
                 ),
               ),
-              // Filter + sort chips
-              _FiltersRow(
-                all: all,
-                methodFilter: _methodFilter,
-                statusFilter: _statusFilter,
-                errorsOnly: _errorsOnly,
-                sort: _sort,
-                onMethodChanged: (v) => setState(() => _methodFilter = v),
-                onStatusChanged: (v) => setState(() => _statusFilter = v),
-                onErrorsOnlyChanged: (v) => setState(() => _errorsOnly = v),
-                onSortChanged: (v) => setState(() => _sort = v),
+              SliverToBoxAdapter(
+                child: _FiltersRow(
+                  all: all,
+                  methodFilter: _methodFilter,
+                  statusFilter: _statusFilter,
+                  errorsOnly: _errorsOnly,
+                  sort: _sort,
+                  onMethodChanged: (v) => setState(() => _methodFilter = v),
+                  onStatusChanged: (v) => setState(() => _statusFilter = v),
+                  onErrorsOnlyChanged: (v) => setState(() => _errorsOnly = v),
+                  onSortChanged: (v) => setState(() => _sort = v),
+                ),
               ),
-              const SizedBox(height: 4),
-              // List
-              Expanded(
-                child: loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : filtered.isEmpty
-                    ? EmptyState(filtered: all.isNotEmpty)
-                    : ListView.builder(
-                        itemCount: filtered.length,
-                        itemBuilder: (_, i) {
-                          final t = filtered[i];
-                          return _TransactionTile(
-                            transaction: t,
-                            selected: _selected.contains(t.id),
-                            selectMode: _selectMode,
-                            onTap: () {
-                              if (_selectMode) {
-                                setState(() {
-                                  if (_selected.contains(t.id)) {
-                                    _selected.remove(t.id);
-                                  } else {
-                                    _selected.add(t.id);
-                                  }
-                                  if (_selected.isEmpty) _selectMode = false;
-                                });
-                              } else {
-                                _openDetail(context, t);
-                              }
-                            },
-                            onLongPress: () => setState(() {
-                              _selectMode = true;
-                              _selected.add(t.id);
-                            }),
-                            onDelete: () async {
-                              // TODO: implement per-item delete when repo supports it
-                            },
-                          );
-                        },
-                      ),
-              ),
+              if (snapshot.hasError)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: TextButton(
+                      onPressed: _reload,
+                      child: const Text('Unable to load history. Retry'),
+                    ),
+                  ),
+                )
+              else if (filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : EmptyState(filtered: all.isNotEmpty),
+                )
+              else
+                SliverList.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (_, index) {
+                    final transaction = filtered[index];
+                    return _TransactionTile(
+                      key: ValueKey(transaction.id),
+                      transaction: transaction,
+                      selected: _selected.contains(transaction.id),
+                      selectMode: _selectMode,
+                      onTap: () {
+                        if (!_selectMode) {
+                          _openDetail(context, transaction);
+                          return;
+                        }
+                        setState(() {
+                          if (!_selected.add(transaction.id)) {
+                            _selected.remove(transaction.id);
+                          }
+                          if (_selected.isEmpty) _selectMode = false;
+                        });
+                      },
+                      onLongPress: () => setState(() {
+                        _selectMode = true;
+                        _selected.add(transaction.id);
+                      }),
+                    );
+                  },
+                ),
             ],
           );
         },
@@ -230,7 +267,7 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
     );
   }
 
-  AppBar _normalAppBar(ThemeData theme) => AppBar(
+  AppBar _normalAppBar() => AppBar(
     leading: widget.onClose != null
         ? IconButton(
             icon: const Icon(Icons.close),
@@ -249,19 +286,34 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
         icon: const Icon(Icons.more_vert),
         tooltip: AppStrings.moreOptions,
         itemBuilder: (_) => [
-          const PopupMenuItem(value: 'settings', child: Text(AppStrings.settings)),
-          const PopupMenuItem(value: 'export', child: Text(AppStrings.exportLogs)),
+          const PopupMenuItem(
+            value: 'settings',
+            child: Text(AppStrings.settings),
+          ),
+          const PopupMenuItem(
+            value: 'export',
+            child: Text(AppStrings.exportLogs),
+          ),
           const PopupMenuItem(
             value: 'clear',
-            child: Text(AppStrings.clearAll, style: TextStyle(color: Colors.red)),
+            child: Text(
+              AppStrings.clearAll,
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
         onSelected: (v) async {
           if (v == 'settings') {
             context.pushNamed(Routes.settings);
           } else if (v == 'export') {
-            final json = await ChuckerFlutterPlus.exportLogs();
-            await Share.share(json);
+            try {
+              final json = await ChuckerFlutterPlus.exportLogs();
+              if (mounted) await shareInspectorText(context, json);
+            } catch (_) {
+              if (mounted) {
+                context.errorSnackBar('Unable to export history');
+              }
+            }
           } else if (v == 'clear') {
             await _clearAll();
           }
@@ -270,9 +322,10 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
     ],
   );
 
-  AppBar _selectAppBar(ThemeData theme) => AppBar(
+  AppBar _selectAppBar() => AppBar(
     leading: IconButton(
       icon: const Icon(Icons.close),
+      tooltip: 'Exit selection',
       onPressed: () => setState(() {
         _selectMode = false;
         _selected.clear();
@@ -283,13 +336,9 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
       IconButton(
         icon: const Icon(Icons.delete_outline),
         tooltip: AppStrings.deleteSelected,
-        onPressed: () async {
-          // TODO: implement batch delete when repo supports per-item delete
-          setState(() {
-            _selectMode = false;
-            _selected.clear();
-          });
-        },
+        onPressed: () => _changeHistory(
+          () => widget.dependencies.transactions.delete(Set.of(_selected)),
+        ),
       ),
     ],
   );
@@ -353,7 +402,9 @@ class _FiltersRow extends StatelessWidget {
           ].map((entry) {
             final label = entry.$1;
             final color = entry.$2;
-            final key = label == AppStrings.filterAll ? AppStrings.filterAll : label[0];
+            final key = label == AppStrings.filterAll
+                ? AppStrings.filterAll
+                : label[0];
             return Padding(
               padding: const EdgeInsets.only(right: AppSizes.gap6),
               child: _FilterChip(
@@ -516,12 +567,12 @@ class _TransactionTile extends StatelessWidget {
     required this.transaction,
     required this.onTap,
     required this.onLongPress,
-    required this.onDelete,
+    super.key,
     this.selected = false,
     this.selectMode = false,
   });
   final NetworkTransaction transaction;
-  final VoidCallback onTap, onLongPress, onDelete;
+  final VoidCallback onTap, onLongPress;
   final bool selected, selectMode;
 
   @override
@@ -529,125 +580,54 @@ class _TransactionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final t = transaction;
 
-    return Dismissible(
-      key: ValueKey(t.id),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(),
-      background: Container(
-        color: theme.colorScheme.errorContainer,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: Icon(
-          Icons.delete_outline,
-          color: theme.colorScheme.onErrorContainer,
-        ),
-      ),
+    return Semantics(
+      selected: selectMode ? selected : null,
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-              : Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                if (selectMode)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Icon(
+        child: Container(
+          color: selected ? theme.colorScheme.primaryContainer : null,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (selectMode)
+                    Icon(
                       selected
                           ? Icons.check_circle
                           : Icons.radio_button_unchecked,
-                      color: selected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                      size: 20,
                     ),
-                  ),
-                // Method chip
-                MethodChip(t.method),
-                const SizedBox(width: 8),
-                // Status badge
-                StatusBadge(t.statusCode, error: t.error),
-                const SizedBox(width: 10),
-                // URL info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.uri.path.isEmpty ? '/' : t.uri.path,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        t.host,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Right meta column
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      _formatDuration(t.duration),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _durationColor(t.duration, theme),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _relativeTime(t.startedAt),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (t.responseBodySize > 0) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        _sizeStr(t.responseBodySize),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
+                  MethodChip(t.method),
+                  StatusBadge(t.statusCode, error: t.error),
+                  Text(_formatDuration(t.duration)),
+                  if (t.responseBodySize > 0)
+                    Text(_sizeStr(t.responseBodySize)),
+                  Text(_relativeTime(t.startedAt)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                t.uri.path.isEmpty ? '/' : t.uri.path,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall,
+              ),
+              Text(
+                t.error == null ? t.host : '${t.host} · ${t.error}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-
-  Color _durationColor(Duration d, ThemeData theme) {
-    if (d.inMilliseconds < 300) return InspectorColors.status2xx;
-    if (d.inMilliseconds < 1000) return InspectorColors.status4xx;
-    return InspectorColors.status5xx;
   }
 
   String _formatDuration(Duration d) {

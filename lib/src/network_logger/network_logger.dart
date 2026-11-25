@@ -1,13 +1,11 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-
+import '../network_logging/network_log_models.dart' as shared;
+import '../network_logging/network_logger.dart' as shared;
 import 'log_redactor.dart';
 import 'network_log_models.dart';
 
 typedef NetworkLogPrinter = void Function(String message);
 
-/// Client-independent console logger. All failures from formatting or the
-/// configured printer are swallowed so diagnostics never affect a request.
+/// Compatibility adapter for the original logger signatures.
 class NetworkLogger {
   NetworkLogger({
     this.config = const NetworkLogConfig(),
@@ -24,131 +22,120 @@ class NetworkLogger {
   final NetworkLogPrinter printer;
   final LogRedactor redactor;
 
-  bool get _active =>
-      config.forceLogging ||
-      (config.enabled && (kDebugMode || config.enableOnRelease));
+  late final shared.NetworkLogger _delegate = shared.NetworkLogger(
+    config: shared.NetworkLogConfig(
+      enabled: config.enabled,
+      forceLogging: config.forceLogging,
+      enableOnRelease: config.enableOnRelease,
+      logRequests: config.logRequests,
+      logResponses: config.logResponses,
+      logErrors: config.logErrors,
+      logTiming: config.logTiming,
+      logErrorMessage: config.logErrorMessage,
+      logRequestHeaders: config.logRequestHeaders,
+      logRequestBody: config.logRequestBody,
+      logResponseHeaders: config.logResponseHeaders,
+      logResponseBody: config.logResponseBody,
+      logErrorBody: config.logErrorBody,
+      logCurlCommand: config.logCurlCommand,
+      maxBodyLength: config.maxBodyLength,
+      slowRequestThreshold: config.slowRequestThreshold,
+      requestColor: config.requestColor,
+      responseColor: config.responseColor,
+      errorColor: config.errorColor,
+      resetColor: config.resetColor,
+    ),
+    printer: printer,
+    redactor: _LegacyRedactor(redactor),
+  );
 
-  void logRequest(NetworkRequestLog request) => _safe(() {
-    if (!_active || !request.enabled) return;
-    final lines = <String>[
-      '${config.requestColor}--> ${request.method} ${request.url}${config.resetColor}',
-    ];
-    if (config.logRequestHeaders) {
-      lines.add('Headers: ${_json(redactor.headers(request.headers))}');
-    }
-    if (config.logRequestBody && request.body != null) {
-      lines.add('Body: ${_formatBody(request.body)}');
-    }
-    for (final part in request.multipartParts) {
-      lines.add('Multipart ${part.name}: ${_formatPart(part)}');
-    }
-    if (config.logCurlCommand) {
-      lines.add('cURL: ${curlCommand(request)}');
-    }
-    printer(lines.join('\n'));
-  });
+  bool get isEnabled => _delegate.isEnabled;
+
+  void logRequest(NetworkRequestLog request) =>
+      _delegate.logRequest(_request(request, DateTime.now()));
 
   void logResponse(
     NetworkRequestLog request,
     NetworkResponseLog response,
     Duration duration,
-  ) => _safe(() {
-    if (!_active || !request.enabled) return;
-    final color = _statusColor(response.statusCode);
-    final lines = <String>[
-      '$color<-- ${response.statusCode} ${request.url} (${duration.inMilliseconds}ms)${config.resetColor}',
-    ];
-    if (duration >= config.slowRequestThreshold) {
-      lines.add(
-        'SLOW REQUEST: threshold ${config.slowRequestThreshold.inMilliseconds}ms',
-      );
-    }
-    if (config.logResponseHeaders) {
-      lines.add('Headers: ${_json(redactor.headers(response.headers))}');
-    }
-    if (config.logResponseBody && response.body != null) {
-      lines.add('Body: ${_formatBody(response.body)}');
-    }
-    printer(lines.join('\n'));
-  });
+  ) {
+    final now = DateTime.now();
+    _delegate.logResponse(
+      shared.NetworkResponseLog(
+        request: _request(request, now.subtract(duration)),
+        statusCode: response.statusCode,
+        headers: response.headers,
+        body: response.body,
+        completedAt: now,
+      ),
+    );
+  }
 
   void logError(
     NetworkRequestLog request,
     NetworkErrorLog error,
     Duration duration,
-  ) => _safe(() {
-    if (!_active || !request.enabled) return;
-    final lines = <String>[
-      '${config.errorColor}<-- ERROR ${request.url} (${duration.inMilliseconds}ms): ${error.type == null ? '' : '${error.type}: '}${error.message}${config.resetColor}',
-    ];
-    if (duration >= config.slowRequestThreshold) {
-      lines.add(
-        'SLOW REQUEST: threshold ${config.slowRequestThreshold.inMilliseconds}ms',
+  ) {
+    final now = DateTime.now();
+    _delegate.logError(
+      shared.NetworkErrorLog(
+        request: _request(request, now.subtract(duration)),
+        error: error.message,
+        type: error.type ?? 'Request failed',
+        body: error.body,
+        completedAt: now,
+      ),
+    );
+  }
+
+  String curlCommand(NetworkRequestLog request) =>
+      _delegate.curlCommand(_request(request, DateTime.now()));
+
+  shared.NetworkRequestLog _request(
+    NetworkRequestLog request,
+    DateTime start,
+  ) => shared.NetworkRequestLog(
+    method: request.method,
+    url: request.url,
+    headers: request.headers,
+    body: request.body,
+    startedAt: start,
+    loggingDisabled: !request.enabled,
+    multipartParts: [
+      for (final part in request.multipartParts)
+        shared.NetworkMultipartPart(
+          name: part.name,
+          value: part.value,
+          fileName: part.filename,
+          length: part.length,
+        ),
+    ],
+  );
+}
+
+class _LegacyRedactor extends LogRedactor {
+  _LegacyRedactor(this.delegate)
+    : super(
+        sensitiveHeaders: delegate.sensitiveHeaders,
+        sensitiveJsonKeys: delegate.sensitiveJsonKeys,
+        replacement: delegate.replacement,
       );
-    }
-    if (config.logErrorBody && error.body != null) {
-      lines.add('Error body: ${_formatBody(error.body)}');
-    }
-    printer(lines.join('\n'));
-  });
 
-  String curlCommand(NetworkRequestLog request) {
-    final b = StringBuffer("curl -X '${request.method}' '${request.url}'");
-    for (final entry in redactor.headers(request.headers).entries) {
-      b.write(" -H '${_shell(entry.key)}: ${_shell(entry.value)}'");
-    }
-    if (request.body != null) {
-      b.write(" --data '${_shell(_stringify(redactor.body(request.body)))}'");
-    }
-    for (final part in request.multipartParts) {
-      final value = redactor.sensitiveJsonKeys.contains(part.name.toLowerCase())
-          ? '[REDACTED]'
-          : part.filename == null
-          ? _stringify(redactor.body(part.value))
-          : '@${part.filename}';
-      b.write(" -F '${_shell(part.name)}=${_shell(value)}'");
-    }
-    return b.toString();
-  }
+  final LogRedactor delegate;
 
-  String _formatPart(NetworkMultipartPart part) {
-    if (redactor.sensitiveJsonKeys.contains(part.name.toLowerCase())) {
-      return '[REDACTED]';
-    }
-    if (part.filename != null) {
-      return 'file=${part.filename}, length=${part.length ?? 'unknown'}';
-    }
-    return _formatBody(part.value);
-  }
+  @override
+  Map<String, Object?> redactHeaders(Map<String, Object?> headers) =>
+      delegate.headers(headers);
 
-  String _formatBody(Object? body) {
-    final value = _stringify(redactor.body(body));
-    if (value.length <= config.maxBodyLength) return value;
-    return '${value.substring(0, config.maxBodyLength)}… [truncated, ${value.length} chars]';
-  }
+  @override
+  Object? redactBody(Object? value, {String? contentType}) =>
+      contentType?.toLowerCase().startsWith(
+            'application/x-www-form-urlencoded',
+          ) ==
+          true
+      ? delegate.redactBody(value, contentType: contentType)
+      : delegate.body(value);
 
-  String _statusColor(int code) => code >= 500
-      ? config.errorColor
-      : code >= 400
-      ? '\x1B[33m'
-      : code >= 300
-      ? '\x1B[36m'
-      : config.responseColor;
-  String _json(Object? value) =>
-      const JsonEncoder.withIndent('  ').convert(value);
-  String _stringify(Object? value) {
-    if (value is String) return value;
-    try {
-      return jsonEncode(value);
-    } catch (_) {
-      return value.toString();
-    }
-  }
-
-  String _shell(Object? value) => value.toString().replaceAll("'", "'\\''");
-  void _safe(void Function() action) {
-    try {
-      action();
-    } catch (_) {}
-  }
+  @override
+  Uri redactUri(Uri uri) => delegate.redactUri(uri);
 }

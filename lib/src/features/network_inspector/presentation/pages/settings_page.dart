@@ -23,16 +23,22 @@ class InspectorSettingsPage extends StatelessWidget {
               title: AppStrings.inAppBanner,
               subtitle: AppStrings.inAppBannerSubtitle,
               value: s.inAppBanner,
-              onChanged: (v) =>
-                  ChuckerFlutterPlus.settings.save(s.copyWith(inAppBanner: v)),
+              onChanged: (v) => ChuckerFlutterPlus.setNotificationPreferences(
+                s.copyWith(inAppBanner: v),
+              ).ignore(),
             ),
             _SwitchTile(
               title: AppStrings.systemNotifications,
-              subtitle: AppStrings.systemNotificationsSubtitle,
-              value: s.systemNotifications,
-              onChanged: (v) => ChuckerFlutterPlus.settings.save(
-                s.copyWith(systemNotifications: v),
-              ),
+              subtitle: ChuckerFlutterPlus.showNotification
+                  ? AppStrings.systemNotificationsSubtitle
+                  : 'The host app has disabled system notifications.',
+              value:
+                  s.systemNotifications && ChuckerFlutterPlus.showNotification,
+              onChanged: ChuckerFlutterPlus.showNotification
+                  ? (v) => ChuckerFlutterPlus.settings
+                        .save(s.copyWith(systemNotifications: v))
+                        .ignore()
+                  : null,
             ),
             _SwitchTile(
               title: AppStrings.statusBarWhileForeground,
@@ -174,20 +180,28 @@ class InspectorSettingsPage extends StatelessWidget {
                     ),
                   ),
                   DropdownButton<int>(
-                    value: [50, 100, 200, 500].contains(s.maximumEntries)
-                        ? s.maximumEntries
-                        : 100,
-                    items: const [50, 100, 200, 500]
-                        .map(
-                          (n) => DropdownMenuItem(value: n, child: Text('$n')),
-                        )
-                        .toList(),
+                    value: s.maximumEntries,
+                    items:
+                        ({0, 50, 100, 200, 500, s.maximumEntries}.toList()
+                              ..sort())
+                            .map(
+                              (n) => DropdownMenuItem(
+                                value: n,
+                                child: Text(n == 0 ? 'Off' : '$n'),
+                              ),
+                            )
+                            .toList(),
                     onChanged: (n) async {
                       if (n != null) {
-                        await ChuckerFlutterPlus.settings.save(
-                          s.copyWith(maximumEntries: n),
-                        );
-                        ChuckerFlutterPlus.configure(maximumEntries: n);
+                        try {
+                          await ChuckerFlutterPlus.setHistoryLimit(n);
+                        } catch (_) {
+                          if (context.mounted) {
+                            context.errorSnackBar(
+                              'Unable to update history limit',
+                            );
+                          }
+                        }
                       }
                     },
                   ),
@@ -290,7 +304,7 @@ class _SwitchTile extends StatelessWidget {
   });
   final String title, subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {

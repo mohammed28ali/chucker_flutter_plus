@@ -1,81 +1,103 @@
 import 'package:http/http.dart' as http;
 
 import '../../domain/entities/network_transaction.dart';
-import '../body_capture.dart';
 import '../../presentation/chucker_flutter.dart';
+import '../../../../core/body_capture.dart';
+import '../../../../core/observed_http_response.dart';
 
+/// Captures HTTP traffic while forwarding response chunks to the caller.
 class ChuckerHttpClient extends http.BaseClient {
   ChuckerHttpClient(this._client);
+
+  /// Set to `true` on a request to skip capture. Removed before sending.
+  static const disableCaptureHeader = 'x-chucker-capture-disabled';
 
   final http.Client _client;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final disabled =
+        request.headers.remove(disableCaptureHeader)?.toLowerCase() == 'true';
+    final session = ChuckerFlutterPlus.captureSession;
+    if (session == null || disabled) return _client.send(request);
+
     final startedAt = DateTime.now();
+    final limit = ChuckerFlutterPlus.maximumBodyBytes;
+    final requestHeaders = Map.of(request.headers);
+    final requestType = requestHeaders['content-type'];
+    final requestBody = switch (request) {
+      http.Request() => BodyCapture.from(
+        request.bodyBytes,
+        limit: limit,
+        contentType: requestType,
+      ),
+      http.MultipartRequest(:final fields) => BodyCapture.from(
+        fields,
+        limit: limit,
+      ),
+      _ => BodyCapture(
+        size: request.contentLength ?? 0,
+        omitted: request.contentLength != 0,
+      ),
+    };
+
+    Future<void> record({
+      http.StreamedResponse? response,
+      BodyCapture responseBody = const BodyCapture(),
+      String? error,
+    }) => ChuckerFlutterPlus.record(
+      NetworkTransaction(
+        id: '${request.hashCode}-${startedAt.microsecondsSinceEpoch}',
+        startedAt: startedAt,
+        completedAt: DateTime.now(),
+        method: request.method,
+        uri: request.url,
+        statusCode: response?.statusCode,
+        requestHeaders: requestHeaders,
+        responseHeaders: response?.headers ?? const {},
+        rawRequestBody: requestBody.text,
+        requestBodySize: request.contentLength ?? requestBody.size,
+        requestBodyTruncated: requestBody.omitted,
+        rawResponseBody: responseBody.text,
+        responseBodySize: responseBody.size,
+        responseBodyTruncated: responseBody.omitted,
+        contentType: response?.headers['content-type'],
+        error: error,
+      ),
+      session: session,
+    );
+
+    late final http.StreamedResponse response;
     try {
-      final response = await _client.send(request);
-      final bytes = await response.stream.toBytes();
-      await ChuckerFlutterPlus.record(
-        NetworkTransaction(
-          id: '${request.hashCode}-${startedAt.microsecondsSinceEpoch}',
-          startedAt: startedAt,
-          completedAt: DateTime.now(),
-          method: request.method,
-          uri: request.url,
-          statusCode: response.statusCode,
-          requestHeaders: ChuckerFlutterPlus.redactHeaders(request.headers),
-          responseHeaders: ChuckerFlutterPlus.redactHeaders(response.headers),
-          rawRequestBody: _requestBody(request),
-          rawResponseBody: BodyCapture.raw(bytes),
-          requestBodySize: _requestBodySize(request),
-          responseBodySize: response.contentLength ?? bytes.length,
-          contentType: response.headers['content-type'],
-        ),
-      );
-      return http.StreamedResponse(
-        http.ByteStream.fromBytes(bytes),
-        response.statusCode,
-        contentLength: response.contentLength,
-        request: response.request,
-        headers: response.headers,
-        isRedirect: response.isRedirect,
-        persistentConnection: response.persistentConnection,
-        reasonPhrase: response.reasonPhrase,
-      );
-    } catch (error, stackTrace) {
-      await ChuckerFlutterPlus.record(
-        NetworkTransaction(
-          id: '${request.hashCode}-${startedAt.microsecondsSinceEpoch}',
-          startedAt: startedAt,
-          completedAt: DateTime.now(),
-          method: request.method,
-          uri: request.url,
-          statusCode: null,
-          requestHeaders: ChuckerFlutterPlus.redactHeaders(request.headers),
-          responseHeaders: const {},
-          rawRequestBody: _requestBody(request),
-          requestBodySize: _requestBodySize(request),
-          error: error.toString(),
-          stackTrace: stackTrace.toString(),
-        ),
-      );
+      response = await _client.send(request);
+    } catch (error) {
+      record(error: error.runtimeType.toString()).ignore();
       rethrow;
     }
+
+    return observeHttpResponse(
+      response,
+      bodyLimit: limit,
+      onError: (error, bytes) {
+        record(
+          response: response,
+          responseBody: BodyCapture(size: bytes.size, omitted: true),
+          error: 'Response stream failed (${error.runtimeType})',
+        ).ignore();
+      },
+      onDone: (bytes) {
+        final responseBody = bytes.omitted
+            ? BodyCapture(size: bytes.size, omitted: true)
+            : BodyCapture.from(
+                bytes.takeBytes(),
+                limit: limit,
+                contentType: response.headers['content-type'],
+              );
+        record(response: response, responseBody: responseBody).ignore();
+      },
+    );
   }
 
   @override
   void close() => _client.close();
-
-  static String? _requestBody(http.BaseRequest request) {
-    if (request case http.Request(:final body)) {
-      return body;
-    }
-    if (request case http.MultipartRequest(:final fields)) {
-      return fields.toString();
-    }
-    return null;
-  }
-
-  static int _requestBodySize(http.BaseRequest request) =>
-      request.contentLength ?? BodyCapture.size(null, _requestBody(request));
 }

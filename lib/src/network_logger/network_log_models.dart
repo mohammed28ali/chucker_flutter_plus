@@ -1,3 +1,5 @@
+import '../network_logging/log_redactor.dart';
+
 /// Client-independent description of an outgoing HTTP request.
 class NetworkRequestLog {
   const NetworkRequestLog({
@@ -61,25 +63,19 @@ class NetworkLogConfig {
     this.logResponseHeaders = true,
     this.logResponseBody = true,
     this.logErrorBody = true,
+    this.logRequests = true,
+    this.logResponses = true,
+    this.logErrors = true,
+    this.logTiming = true,
+    this.logErrorMessage = false,
     this.logCurlCommand = true,
     this.enabled = true,
     this.forceLogging = false,
     this.enableOnRelease = false,
     this.maxBodyLength = 4000,
     this.slowRequestThreshold = const Duration(seconds: 10),
-    this.sensitiveHeaders = const {
-      'authorization',
-      'cookie',
-      'set-cookie',
-      'x-api-key',
-    },
-    this.sensitiveJsonKeys = const {
-      'password',
-      'token',
-      'access_token',
-      'refresh_token',
-      'secret',
-    },
+    this.sensitiveHeaders = LogRedactor.defaultSensitiveHeaders,
+    this.sensitiveJsonKeys = LogRedactor.defaultSensitiveKeys,
     this.requestColor = '\x1B[36m',
     this.responseColor = '\x1B[32m',
     this.errorColor = '\x1B[31m',
@@ -95,6 +91,7 @@ class NetworkLogConfig {
       enabled,
       forceLogging,
       enableOnRelease;
+  final bool logRequests, logResponses, logErrors, logTiming, logErrorMessage;
   final int maxBodyLength;
   final Duration slowRequestThreshold;
   final Set<String> sensitiveHeaders, sensitiveJsonKeys;

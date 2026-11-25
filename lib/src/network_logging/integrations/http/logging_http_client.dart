@@ -1,8 +1,7 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import '../../../core/body_capture.dart';
+import '../../../core/observed_http_response.dart';
 import '../../network_log_models.dart';
 import '../../network_logger.dart';
 
@@ -19,13 +18,14 @@ class LoggingHttpClient extends http.BaseClient {
     final disabled =
         request.headers[disableLoggingHeader]?.toLowerCase() == 'true';
     request.headers.remove(disableLoggingHeader);
+    if (disabled || !logger.isEnabled) return inner.send(request);
     final requestLog = NetworkRequestLog(
       method: request.method,
       url: request.url,
       headers: {
         for (final entry in request.headers.entries) entry.key: entry.value,
       },
-      body: request is http.Request ? request.body : null,
+      body: request is http.Request ? _requestBody(request) : null,
       startedAt: started,
       loggingDisabled: disabled,
       multipartParts: request is http.MultipartRequest
@@ -47,56 +47,29 @@ class LoggingHttpClient extends http.BaseClient {
     try {
       logger.logRequest(requestLog);
       final response = await inner.send(request);
-      final bytes = <int>[];
-      final stream = response.stream.transform(
-        StreamTransformer<List<int>, List<int>>.fromHandlers(
-          handleData: (chunk, sink) {
-            if (logger.config.logResponseBody &&
-                !disabled &&
-                bytes.length < logger.config.maxBodyLength * 4) {
-              final remaining = logger.config.maxBodyLength * 4 - bytes.length;
-              bytes.addAll(chunk.take(remaining));
-            }
-            sink.add(chunk);
-          },
-          handleError: (error, stack, sink) {
-            logger.logError(
-              NetworkErrorLog(
-                request: requestLog,
-                error: error,
-                type: error.runtimeType.toString(),
-                statusCode: response.statusCode,
-              ),
-            );
-            sink.addError(error, stack);
-          },
-          handleDone: (sink) {
-            logger.logResponse(
-              NetworkResponseLog(
-                request: requestLog,
-                statusCode: response.statusCode,
-                headers: {
-                  for (final entry in response.headers.entries)
-                    entry.key: entry.value,
-                },
-                body: logger.config.logResponseBody && !disabled
-                    ? _decode(bytes)
-                    : null,
-              ),
-            );
-            sink.close();
-          },
+      final captureBody =
+          logger.config.logResponses && logger.config.logResponseBody;
+      return observeHttpResponse(
+        response,
+        bodyLimit: logger.config.maxBodyLength * 4,
+        captureBody: captureBody,
+        onError: (error, _) => logger.logError(
+          NetworkErrorLog(
+            request: requestLog,
+            error: error,
+            type: error.runtimeType.toString(),
+            statusCode: response.statusCode,
+            headers: response.headers,
+          ),
         ),
-      );
-      return http.StreamedResponse(
-        stream,
-        response.statusCode,
-        contentLength: response.contentLength,
-        request: response.request,
-        headers: response.headers,
-        isRedirect: response.isRedirect,
-        persistentConnection: response.persistentConnection,
-        reasonPhrase: response.reasonPhrase,
+        onDone: (bytes) => logger.logResponse(
+          NetworkResponseLog(
+            request: requestLog,
+            statusCode: response.statusCode,
+            headers: response.headers,
+            body: captureBody ? _responseBody(bytes, response) : null,
+          ),
+        ),
       );
     } catch (error) {
       logger.logError(
@@ -113,12 +86,29 @@ class LoggingHttpClient extends http.BaseClient {
   @override
   void close() => inner.close();
 
-  static Object? _decode(List<int> bytes) {
-    final text = utf8.decode(bytes, allowMalformed: true);
-    try {
-      return jsonDecode(text);
-    } on FormatException {
-      return text;
-    }
+  Object? _requestBody(http.Request request) {
+    if (!logger.config.logRequestBody) return null;
+    final limit = logger.config.maxBodyLength * 4;
+    final body = BodyCapture.from(
+      request.bodyBytes,
+      limit: limit,
+      contentType: request.headers['content-type'],
+      includeBinary: false,
+    );
+    return body.omitted ? '<body omitted>' : body.text;
+  }
+
+  Object? _responseBody(
+    BoundedBodyBytes bytes,
+    http.StreamedResponse response,
+  ) {
+    if (bytes.omitted) return '<body omitted: exceeds log limit>';
+    final body = BodyCapture.from(
+      bytes.takeBytes(),
+      limit: bytes.limit,
+      contentType: response.headers['content-type'],
+      includeBinary: false,
+    );
+    return body.omitted ? '<body omitted>' : body.text;
   }
 }

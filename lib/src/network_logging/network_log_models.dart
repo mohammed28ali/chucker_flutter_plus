@@ -1,11 +1,11 @@
-import 'package:flutter/foundation.dart';
+import 'log_redactor.dart';
 
-/// Marker for disabling logging on a single Chopper request via its [tag].
+/// Marker for disabling logging on a single Chopper request via its `tag`.
 class NetworkLoggerDisabled {
   const NetworkLoggerDisabled();
 }
 
-/// Client-independent request details passed to [NetworkLogger].
+/// Client-independent request details passed to `NetworkLogger`.
 class NetworkRequestLog {
   NetworkRequestLog({
     required this.method,
@@ -88,12 +88,14 @@ class NetworkMultipartPart {
 /// Common configuration for client-independent network logs.
 class NetworkLogConfig {
   const NetworkLogConfig({
-    this.enabled = kDebugMode,
+    this.enabled = true,
     this.forceLogging = false,
     this.enableOnRelease = false,
     this.logRequests = true,
     this.logResponses = true,
     this.logErrors = true,
+    this.logTiming = true,
+    this.logErrorMessage = false,
     this.logRequestHeaders = true,
     this.logRequestBody = true,
     this.logResponseHeaders = true,
@@ -102,22 +104,8 @@ class NetworkLogConfig {
     this.logCurlCommand = true,
     this.maxBodyLength = 4000,
     this.slowRequestThreshold = const Duration(seconds: 3),
-    this.sensitiveHeaders = const {
-      'authorization',
-      'cookie',
-      'set-cookie',
-      'x-api-key',
-      'api-key',
-    },
-    this.sensitiveJsonKeys = const {
-      'password',
-      'token',
-      'access_token',
-      'refresh_token',
-      'secret',
-      'authorization',
-      'api_key',
-    },
+    this.sensitiveHeaders = LogRedactor.defaultSensitiveHeaders,
+    this.sensitiveJsonKeys = LogRedactor.defaultSensitiveKeys,
     this.requestColor = '\x1B[36m',
     this.responseColor = '\x1B[32m',
     this.errorColor = '\x1B[31m',
@@ -129,6 +117,10 @@ class NetworkLogConfig {
   final bool logRequests;
   final bool logResponses;
   final bool logErrors;
+  final bool logTiming;
+
+  /// Opt in to unstructured exception messages which may contain secrets.
+  final bool logErrorMessage;
   final bool logRequestHeaders;
   final bool logRequestBody;
   final bool logResponseHeaders;

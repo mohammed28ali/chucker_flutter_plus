@@ -63,6 +63,7 @@ void main() {
       NetworkResponseLog(
         request: req,
         statusCode: 503,
+        completedAt: req.startedAt.add(const Duration(seconds: 6)),
         body: 'a very long response body',
       ),
     );
@@ -101,18 +102,48 @@ void main() {
     );
   });
 
+  test('redacts URLs, form bodies, multipart fields and error messages', () {
+    final lines = <String>[];
+    final logger = NetworkLogger(printer: lines.add);
+    final outgoing = NetworkRequestLog(
+      method: 'POST',
+      url: Uri.parse(
+        'https://user:pw@example.test/path?access-token=query-secret',
+      ),
+      headers: {'content-type': 'application/x-www-form-urlencoded'},
+      body: 'password=form-secret&sample=1',
+    );
+    final multipart = NetworkRequestLog(
+      method: 'POST',
+      url: outgoing.url,
+      multipartParts: [
+        NetworkMultipartPart(name: 'clientSecret', value: 'multipart-secret'),
+      ],
+    );
+    logger.logRequest(outgoing);
+    logger.logRequest(multipart);
+    logger.logError(
+      NetworkErrorLog(request: outgoing, error: Exception('exception-secret')),
+    );
+    expect(lines, hasLength(3));
+    expect(lines.join(), isNot(contains('-secret')));
+    expect(lines.join(), isNot(contains('user:pw')));
+    expect(lines.join(), contains('sample=1'));
+  });
+
   test('body logging can be disabled independently', () {
     final lines = <String>[];
     final logger = NetworkLogger(
       config: const NetworkLogConfig(
         enabled: true,
         logRequestBody: false,
-        logCurlCommand: false,
+        logCurlCommand: true,
       ),
       printer: lines.add,
     );
     logger.logRequest(request());
     expect(lines.single, isNot(contains('secret')));
     expect(lines.single, isNot(contains('Body:')));
+    expect(lines.single, isNot(contains('--data')));
   });
 }

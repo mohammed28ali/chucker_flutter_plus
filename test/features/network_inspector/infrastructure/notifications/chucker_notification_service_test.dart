@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:chucker_flutter_plus/chucker_flutter_plus.dart';
 import 'package:chucker_flutter_plus/src/features/network_inspector/infrastructure/notifications/chucker_notification_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +21,7 @@ void main() {
   late List<MethodCall> recordedCalls;
 
   NetworkTransaction sampleTransaction() {
-    final now = DateTime.utc(2026, 1, 1);
+    final now = DateTime.now();
     return NetworkTransaction(
       id: 'tx-1',
       startedAt: now,
@@ -66,6 +67,7 @@ void main() {
   void mockNotificationsChannel({
     Set<String> validIcons = const {'@mipmap/ic_launcher'},
     Map<String, Object?>? launchDetails,
+    bool permissionGranted = true,
   }) {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(notificationsChannel, (call) async {
@@ -90,7 +92,7 @@ void main() {
               return launchDetails ??
                   <String, Object?>{'notificationLaunchedApp': false};
             case 'requestNotificationsPermission':
-              return true;
+              return permissionGranted;
             case 'show':
               return null;
           }
@@ -171,6 +173,33 @@ void main() {
     },
   );
 
+  test('handles permission denial without posting', () async {
+    mockNotificationsChannel(permissionGranted: false);
+    final service = ChuckerNotificationService();
+
+    expect(await service.initialize(), isFalse);
+    await service.show(sampleTransaction());
+    expect(recordedCalls.where((call) => call.method == 'show'), isEmpty);
+  });
+
+  test('groups requests and throttles rapid updates', () async {
+    mockNotificationsChannel();
+    final service = ChuckerNotificationService();
+    await service.initialize(requestPermission: false);
+
+    await service.show(sampleTransaction());
+    await service.show(sampleTransaction());
+    final shown = recordedCalls.where((call) => call.method == 'show').single;
+    expect((shown.arguments as Map)['payload'], 'chucker:tx-1');
+    expect(
+      recordedCalls.where(
+        (call) => call.method == 'requestNotificationsPermission',
+      ),
+      isEmpty,
+    );
+    await service.dispose();
+  });
+
   test('routes launch notification payload when initialized', () async {
     mockNotificationsChannel(
       launchDetails: <String, Object?>{
@@ -191,4 +220,57 @@ void main() {
     expect(initialized, isTrue);
     expect(selectedId, 'req-42');
   });
+
+  testWidgets(
+    'a launch tap opens the transaction using the app navigator key',
+    (tester) async {
+      mockNotificationsChannel(
+        launchDetails: <String, Object?>{
+          'notificationLaunchedApp': true,
+          'notificationResponse': <String, Object?>{
+            'notificationResponseType': 0,
+            'payload': 'chucker:tx-1',
+          },
+        },
+      );
+      final key = GlobalKey<NavigatorState>();
+      await tester.runAsync(() async {
+        await Inspector.init(
+          navigatorKey: key,
+          config: const InspectorConfig(
+            showStatusBarNotification: true,
+            showInAppNotification: false,
+          ),
+        );
+        await ChuckerFlutterPlus.record(sampleTransaction());
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: key,
+          home: const Scaffold(body: Text('Host page')),
+        ),
+      );
+      Future<void> waitFor(bool Function() condition) async {
+        for (var frame = 0; frame < 50 && !condition(); frame++) {
+          // Hive I/O runs outside the widget test's fake clock.
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(condition(), isTrue);
+      }
+
+      await waitFor(() => find.text('Overview').evaluate().isNotEmpty);
+      await tester.pumpAndSettle();
+
+      var disposed = false;
+      final disposal = Inspector.dispose().then((_) => disposed = true);
+      await waitFor(() => disposed);
+      await disposal;
+      await tester.pumpWidget(const SizedBox.shrink());
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
 }

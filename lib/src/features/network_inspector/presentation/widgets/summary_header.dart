@@ -44,8 +44,10 @@ class SummaryHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSizes.radiusMd),
         border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Wrap(
+        alignment: WrapAlignment.spaceEvenly,
+        spacing: 16,
+        runSpacing: 12,
         children: [
           _stat(
             context,
@@ -53,7 +55,6 @@ class SummaryHeader extends StatelessWidget {
             AppStrings.statTotal,
             Icons.list_alt_outlined,
           ),
-          _divider(context),
           _stat(
             context,
             '$successes',
@@ -61,7 +62,6 @@ class SummaryHeader extends StatelessWidget {
             Icons.check_circle_outline,
             color: InspectorColors.status2xx,
           ),
-          _divider(context),
           _stat(
             context,
             '$errors',
@@ -69,14 +69,12 @@ class SummaryHeader extends StatelessWidget {
             Icons.error_outline,
             color: InspectorColors.status5xx,
           ),
-          _divider(context),
           _stat(
             context,
             '${avgMs}ms',
             AppStrings.statAvg,
             Icons.timer_outlined,
           ),
-          _divider(context),
           _stat(
             context,
             _size(totalBytes),
@@ -110,12 +108,6 @@ class SummaryHeader extends StatelessWidget {
       ],
     );
   }
-
-  Widget _divider(BuildContext context) => Container(
-    height: 30,
-    width: 1,
-    color: Theme.of(context).colorScheme.outlineVariant,
-  );
 
   static String _size(int bytes) => bytes < 1024
       ? '$bytes B'

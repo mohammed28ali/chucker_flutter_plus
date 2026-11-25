@@ -10,6 +10,8 @@ dependencies:
   chucker_flutter_plus:
     path: ../
   dio: ^5.11.1
+  http: ^1.6.0
+  chopper: ^8.7.0
   flutter:
     sdk: flutter
 

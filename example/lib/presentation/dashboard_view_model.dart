@@ -11,14 +11,11 @@ import 'models/dashboard_state.dart';
 
 final class DashboardViewModel extends ChangeNotifier {
   DashboardViewModel({
-    required GetPosts getPosts,
-    required GetPost getPost,
-    required GetMissingPost getMissingPost,
-    required CreateDemoPost createDemoPost,
-  }) : _getPosts = getPosts,
-       _getPost = getPost,
-       _getMissingPost = getMissingPost,
-       _createDemoPost = createDemoPost;
+    required this._getPosts,
+    required this._getPost,
+    required this._getMissingPost,
+    required this._createDemoPost,
+  });
 
   final GetPosts _getPosts;
   final GetPost _getPost;

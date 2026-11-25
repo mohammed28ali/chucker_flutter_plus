@@ -143,7 +143,7 @@ abstract final class AppStrings {
   static const String labelCompleted = 'Completed';
   static const String labelRequestBody = 'Request body';
   static const String labelResponseBody = 'Response body';
-  static const String labelTruncated = 'Truncated';
+  static const String labelTruncated = 'Incomplete or omitted';
   static const String labelSize = 'Size';
   static const String labelDimensions = 'Dimensions';
   static const String labelRequestHeaders = 'Request Headers';
@@ -190,7 +190,7 @@ abstract final class AppStrings {
       'Show OS-level notifications for requests.';
   static const String statusBarWhileForeground = 'Status bar while foreground';
   static const String statusBarWhileForegroundSubtitle =
-      'Also show system notifications when the app is in the foreground.';
+      'Prefer system notifications to banners in the foreground.';
   static const String notifyOnlyOnError = 'Notify only on error';
   static const String notifyOnlyOnErrorSubtitle =
       'Only show notifications for failed requests (4xx/5xx/errors).';
