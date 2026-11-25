@@ -12,6 +12,7 @@ import '../infrastructure/notifications/chucker_notification_service.dart';
 import 'inspector_settings.dart';
 import 'inspector_config.dart';
 import 'request_banner.dart';
+import '../../../speed_test/chucker_speed_test.dart';
 
 class ChuckerFlutterPlus {
   ChuckerFlutterPlus._();
@@ -162,10 +163,8 @@ class ChuckerFlutterPlus {
     }
     _banner.bind(ctx);
     _entry = OverlayEntry(
-      builder: (_) => _IsolatedInspector(
-        dependencies: _dependencies,
-        requestId: requestId,
-      ),
+      builder: (_) =>
+          _IsolatedInspector(dependencies: _dependencies, requestId: requestId),
     );
     overlay.insert(_entry!);
   }
@@ -203,6 +202,22 @@ class ChuckerFlutterPlus {
     _entry?.remove();
     _entry = null;
   }
+
+  /// Opens a standalone internet speed test for download, upload, and latency.
+  ///
+  /// Endpoints default to Cloudflare's public speed test service. Pass custom
+  /// URLs when using an organization's own test server.
+  static Future<void> showSpeedTest(
+    BuildContext context, {
+    String downloadUrl = 'https://speed.cloudflare.com/__down?bytes=25000000',
+    String uploadUrl = 'https://speed.cloudflare.com/__up',
+    String latencyUrl = 'https://speed.cloudflare.com/__down?bytes=0',
+  }) => ChuckerSpeedTest.show(
+    context,
+    downloadUrl: downloadUrl,
+    uploadUrl: uploadUrl,
+    latencyUrl: latencyUrl,
+  );
 
   static Widget button({Key? key}) => Builder(
     builder: (context) => IconButton(
@@ -325,10 +340,7 @@ class Inspector {
 /// A self-contained overlay widget that provides an isolated Material 3 theme
 /// so the inspector never inherits or modifies the host app's theme.
 class _IsolatedInspector extends StatefulWidget {
-  const _IsolatedInspector({
-    required this.dependencies,
-    this.requestId,
-  });
+  const _IsolatedInspector({required this.dependencies, this.requestId});
   final ChuckerDependencies dependencies;
   final String? requestId;
 

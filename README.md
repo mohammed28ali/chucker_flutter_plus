@@ -158,6 +158,18 @@ await ChuckerFlutterPlus.clearLogs();
 final json = await ChuckerFlutterPlus.exportLogs();
 ```
 
+### Internet speed test
+
+Open a built-in screen to measure latency, download speed, and upload speed:
+
+```dart
+ChuckerFlutterPlus.showSpeedTest(context);
+```
+
+The default test endpoints use Cloudflare's public speed test service. You can
+pass your own compatible endpoints with `downloadUrl`, `uploadUrl`, and
+`latencyUrl` when your app uses a private test server.
+
 ### Image and video responses
 
 Responses with an `image/*` or `video/*` content type get a Media tab. Images
