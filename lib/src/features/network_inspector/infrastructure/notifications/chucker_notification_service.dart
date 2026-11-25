@@ -3,9 +3,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../domain/entities/network_transaction.dart';
 
 class ChuckerNotificationService {
-  // This resource is packaged in the Android library namespace, so consumers
-  // do not need to copy it into their own res/ directory.
-  static const notificationIcon = 'chucker_flutter_plus:drawable/chucker_icon';
+  // Use the host app's launcher icon for status bar notifications.
+  static const notificationIcon = 'ic_launcher';
   ChuckerNotificationService({
     this.onRequestSelected,
     this.onUnrecognizedPayload,
@@ -22,7 +21,7 @@ class ChuckerNotificationService {
 
   Future<void> initialize({String channelName = 'Network inspector'}) async {
     await _plugin.initialize(
-    settings:  const InitializationSettings(
+      settings: const InitializationSettings(
         android: AndroidInitializationSettings(notificationIcon),
         iOS: const DarwinInitializationSettings(),
         macOS: const DarwinInitializationSettings(),

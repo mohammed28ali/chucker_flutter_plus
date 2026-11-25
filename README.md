@@ -178,7 +178,7 @@ permission during initialization:
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
-Android notifications use the package's fixed Chucker notification icon. iOS
+Android notifications use the host app's `ic_launcher` icon. iOS
 and macOS use the app icon and request notification permission during
 initialization. Linux and Windows use their desktop notification services.
 Notification tap routing depends on the platform notification service and may
