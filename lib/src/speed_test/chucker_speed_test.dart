@@ -461,19 +461,7 @@ class _SpeedHero extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                SizedBox.expand(
-                  child: CircularProgressIndicator(
-                    value: running
-                        ? null
-                        : phase == _TestPhase.done
-                        ? 1
-                        : 0.78,
-                    strokeWidth: 7,
-                    strokeCap: StrokeCap.round,
-                    color: running ? color : const Color(0xFF5EEAD4),
-                    backgroundColor: Colors.white.withValues(alpha: .13),
-                  ),
-                ),
+               
                 Container(
                   width: 122,
                   height: 122,
@@ -487,30 +475,16 @@ class _SpeedHero extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 450),
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: ScaleTransition(
-                            scale: Tween<double>(
-                              begin: .85,
-                              end: 1,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        ),
-                        child: Text(
-                          speed == null ? '—' : speed.toStringAsFixed(1),
-                          key: ValueKey(speed),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 38,
-                            height: 1,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -1.5,
-                          ),
-                        ),
-                      ),
+                     Text(
+  speed == null ? '—' : speed.toStringAsFixed(1),
+  style: const TextStyle(
+    color: Colors.white,
+    fontSize: 38,
+    height: 1,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -1.5,
+  ),
+),
                       const SizedBox(height: 5),
                       Text(
                         phase == _TestPhase.done
