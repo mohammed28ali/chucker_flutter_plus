@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.12
+
+- Added previews for multipart request file attachments.
+- Migrated Material UI imports and sharing calls to their current APIs.
+
+## 1.0.11
+
+- Improved multipart request body capture and added support for file previews.
+
 ## 1.0.5
 
 - Added Linux, macOS, and Windows desktop support and example runner setup.

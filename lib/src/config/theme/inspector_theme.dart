@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'inspector_colors.dart';
 
@@ -40,52 +40,6 @@ abstract final class InspectorTheme {
       onError: Colors.white,
       surface: surface,
       onSurface: text,
-      surfaceContainerLowest: bg,
-      surfaceContainerLow: secondarySurface,
-      surfaceContainer: surface,
-      surfaceContainerHigh: secondarySurface,
-      surfaceContainerHighest: dark
-          ? const Color(0xFF273449)
-          : const Color(0xFFE8EEF5),
-      onSurfaceVariant: secondaryText,
-      outline: border,
-      outlineVariant: border,
-      tertiary: InspectorColors.warning,
-      onTertiary: text,
-      tertiaryContainer: dark
-          ? const Color(0xFF422006)
-          : const Color(0xFFFFF7E6),
-      onTertiaryContainer: dark
-          ? const Color(0xFFFDE68A)
-          : const Color(0xFF92400E),
-      errorContainer: dark ? const Color(0xFF451A1A) : const Color(0xFFFEE2E2),
-      onErrorContainer: dark
-          ? const Color(0xFFFECACA)
-          : const Color(0xFF991B1B),
-      primaryContainer: dark
-          ? const Color(0xFF134E4A)
-          : const Color(0xFFCCFBF1),
-      onPrimaryContainer: dark
-          ? const Color(0xFF99F6E4)
-          : const Color(0xFF115E59),
-      secondaryContainer: dark
-          ? const Color(0xFF1E3A5F)
-          : const Color(0xFFDBEAFE),
-      onSecondaryContainer: dark
-          ? const Color(0xFFBFDBFE)
-          : const Color(0xFF1E40AF),
-      inverseSurface: dark
-          ? InspectorColors.lightSurface
-          : InspectorColors.darkSurface,
-      onInverseSurface: dark
-          ? InspectorColors.lightText
-          : InspectorColors.darkText,
-      inversePrimary: dark
-          ? InspectorColors.primaryDark
-          : const Color(0xFF0D9488),
-      shadow: Colors.black,
-      scrim: Colors.black,
-      surfaceTint: dark ? const Color(0xFF2DD4BF) : primary,
     );
 
     final radius = BorderRadius.circular(12);

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
 /// Opens a standalone internet speed test screen.
@@ -461,7 +461,6 @@ class _SpeedHero extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-               
                 Container(
                   width: 122,
                   height: 122,
@@ -475,16 +474,16 @@ class _SpeedHero extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                     Text(
-  speed == null ? '—' : speed.toStringAsFixed(1),
-  style: const TextStyle(
-    color: Colors.white,
-    fontSize: 38,
-    height: 1,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -1.5,
-  ),
-),
+                      Text(
+                        speed == null ? '—' : speed.toStringAsFixed(1),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 38,
+                          height: 1,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -1.5,
+                        ),
+                      ),
                       const SizedBox(height: 5),
                       Text(
                         phase == _TestPhase.done

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:chucker_flutter_plus/src/config/theme/inspector_colors.dart';
 import 'package:chucker_flutter_plus/src/core/core.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 enum _ViewMode { tree, pretty, raw }

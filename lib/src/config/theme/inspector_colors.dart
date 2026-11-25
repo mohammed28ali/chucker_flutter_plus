@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Palette and shared design tokens for the isolated network inspector.
 abstract final class InspectorColors {
@@ -106,12 +106,15 @@ abstract final class InspectorColors {
           ? (statusErrorDark, statusErrorBgDark)
           : (statusError, statusErrorBg);
     }
-    if (code < 300)
+    if (code < 300) {
       return dark ? (status2xxDark, status2xxBgDark) : (status2xx, status2xxBg);
-    if (code < 400)
+    }
+    if (code < 400) {
       return dark ? (status3xxDark, status3xxBgDark) : (status3xx, status3xxBg);
-    if (code < 500)
+    }
+    if (code < 500) {
       return dark ? (status4xxDark, status4xxBgDark) : (status4xx, status4xxBg);
+    }
     return dark ? (status5xxDark, status5xxBgDark) : (status5xx, status5xxBg);
   }
 }

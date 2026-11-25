@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:chucker_flutter_plus/src/config/dependency_injection/chucker_dependencies.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../features/network_inspector/domain/entities/network_transaction.dart';
 import '../../features/network_inspector/presentation/pages/network_inspector_page.dart';

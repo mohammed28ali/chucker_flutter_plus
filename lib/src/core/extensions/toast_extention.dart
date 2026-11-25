@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 extension SnackBarExtension on BuildContext {
   void closeSnackBar() => ScaffoldMessenger.of(this).hideCurrentSnackBar();

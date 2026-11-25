@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:chucker_flutter_plus/src/features/network_inspector/infrastructure/body_capture.dart';
@@ -156,7 +156,7 @@ class _RequestDetailPageState extends State<RequestDetailPage>
   }
 
   void _shareCurl(NetworkTransaction t) async {
-    await Share.share(_buildCurl(t));
+    await SharePlus.instance.share(ShareParams(text: _buildCurl(t)));
   }
 
   void _onAction(String action, NetworkTransaction t) async {
@@ -182,7 +182,7 @@ class _RequestDetailPageState extends State<RequestDetailPage>
           'requestBody': t.rawRequestBody,
           'responseBody': t.rawResponseBody,
         });
-        await Share.share(json);
+        await SharePlus.instance.share(ShareParams(text: json));
     }
   }
 

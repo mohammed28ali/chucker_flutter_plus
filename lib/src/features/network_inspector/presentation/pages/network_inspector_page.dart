@@ -1,6 +1,6 @@
 import 'package:chucker_flutter_plus/src/config/theme/inspector_colors.dart';
 import 'package:chucker_flutter_plus/src/core/core.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../config/dependency_injection/chucker_dependencies.dart';
@@ -284,7 +284,7 @@ class _NetworkInspectorPageState extends State<NetworkInspectorPage> {
             context.pushNamed(Routes.settings);
           } else if (v == 'export') {
             final json = await ChuckerFlutterPlus.exportLogs();
-            await Share.share(json);
+            await SharePlus.instance.share(ShareParams(text: json));
           } else if (v == 'clear') {
             await _clearAll();
           }

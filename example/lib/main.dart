@@ -1,8 +1,6 @@
 import 'package:chucker_flutter_plus/chucker_flutter_plus.dart';
-import 'package:chucker_flutter_plus/network_logger_dio.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'core/config/demo_config.dart';
 import 'data/datasources/posts_remote_data_source.dart';
@@ -15,7 +13,6 @@ import 'domain/usecases/get_posts.dart';
 import 'presentation/dashboard_view_model.dart';
 import 'presentation/models/dashboard_state.dart';
 import 'presentation/models/post.dart';
-
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -577,16 +574,13 @@ class _TipCard extends StatelessWidget {
 }
 
 PostsRepository _createPostsRepository() {
-  final dio =
-      Dio(
-          BaseOptions(
-            baseUrl: DemoConfig.apiBaseUrl,
-            connectTimeout: DemoConfig.requestTimeout,
-            receiveTimeout: DemoConfig.requestTimeout,
-            headers: const {'Accept': 'application/json'},
-          ),
-        )
-        ..interceptors.add(ChuckerDioInterceptor())
-       ;
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: DemoConfig.apiBaseUrl,
+      connectTimeout: DemoConfig.requestTimeout,
+      receiveTimeout: DemoConfig.requestTimeout,
+      headers: const {'Accept': 'application/json'},
+    ),
+  )..interceptors.add(ChuckerDioInterceptor());
   return PostsRepositoryImpl(PostsRemoteDataSource(dio));
 }

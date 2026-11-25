@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../routes/routes_name.dart';
 
@@ -9,9 +9,9 @@ extension NavigatorExtension on BuildContext {
   Future<dynamic> pushReplacementNamed(
     String routeName, {
     Object? arguments,
-  }) async =>
-      await Navigator.of(this)
-          .pushReplacementNamed(routeName, arguments: arguments);
+  }) async => await Navigator.of(
+    this,
+  ).pushReplacementNamed(routeName, arguments: arguments);
 
   Future<dynamic> pushAndRemoveUntilNamed(
     String routeName, {

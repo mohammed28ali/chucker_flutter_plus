@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../../../config/theme/inspector_colors.dart';
@@ -225,7 +225,7 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
                                 t.uri.toString(),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: AppSizes.textSmPlus,
                                   color: theme.colorScheme.onSurface,
@@ -235,7 +235,7 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
                                 const SizedBox(height: AppSizes.gap2),
                                 Text(
                                   '+${widget.extra} more request${widget.extra == 1 ? '' : 's'}',
-                                style: TextStyle(
+                                  style: TextStyle(
                                     fontSize: AppSizes.textSm,
                                     color: theme.colorScheme.onSurfaceVariant,
                                     fontStyle: FontStyle.italic,
