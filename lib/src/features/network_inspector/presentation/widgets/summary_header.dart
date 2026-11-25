@@ -40,9 +40,23 @@ class SummaryHeader extends StatelessWidget {
         vertical: AppSizes.paddingMd,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.84),
+            theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.92),
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
+        border: Border.all(color: InspectorColors.glassHighlight, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6478A8).withValues(alpha: 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,

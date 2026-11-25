@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
 abstract final class InspectorColors {
-  static const Color seed = Color(0xFF0891F2);
-  static const Color seedAccent = Color(0xFF22D3EE);
+  static const Color seed = Color(0xFF6478E8);
+  static const Color seedAccent = Color(0xFF55C8D8);
 
   static const Color brandNavy = Color(0xFF0B1428);
-  static const Color brandBlue = Color(0xFF008DFF);
-  static const Color brandCyan = Color(0xFF22D3EE);
+  static const Color brandBlue = Color(0xFF6478E8);
+  static const Color brandCyan = Color(0xFF55C8D8);
 
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF22D3EE), Color(0xFF0891F2), Color(0xFF0066FF)],
+    colors: [Color(0xFF71D6DE), Color(0xFF7893F0), Color(0xFFAA8CE8)],
   );
 
   // ── Method chips ────────────────────────────────────────────────
@@ -74,9 +74,11 @@ abstract final class InspectorColors {
   static const Color jsonKeyDark = Color(0xFFC4B5FD);
 
   // ── Surface / overlay tones (light) ─────────────────────────────
-  static const Color surface = Color(0xFFF4F8FF);
-  static const Color cardLight = Color(0xFFFFFFFF);
-  static const Color dividerLight = Color(0xFFDFE7F2);
+  static const Color surface = Color(0xFFF3F6FC);
+  static const Color cardLight = Color(0xDFFFFFFF);
+  static const Color dividerLight = Color(0xFFDCE4F1);
+  static const Color surfaceTint = Color(0xFFE9EFFB);
+  static const Color glassHighlight = Color(0xBFFFFFFF);
 
   // ── Surface / overlay tones (dark) ──────────────────────────────
   static const Color surfaceDark = Color(0xFF0B1428);
@@ -84,13 +86,13 @@ abstract final class InspectorColors {
   static const Color dividerDark = Color(0xFF263650);
 
   // ── Brand-specific surfaces ─────────────────────────────────────
-  static const Color primaryLight = Color(0xFF007BFF);
+  static const Color primaryLight = Color(0xFF586FD8);
   static const Color primaryDark = Color(0xFF38BDF8);
 
-  static const Color accentLight = Color(0xFF0891B2);
+  static const Color accentLight = Color(0xFF168FAD);
   static const Color accentDark = Color(0xFF22D3EE);
 
-  static const Color brandTintLight = Color(0xFFE0F2FE);
+  static const Color brandTintLight = Color(0xFFE6EAFB);
   static const Color brandTintDark = Color(0xFF102D4D);
 
   // ── Helpers ─────────────────────────────────────────────────────

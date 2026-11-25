@@ -136,6 +136,7 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
   @override
   Widget build(BuildContext context) {
     final t = widget.transaction;
+    final theme = Theme.of(context);
     final code = t.statusCode ?? 0;
     final hasError = t.error != null && code == 0;
 
@@ -163,103 +164,113 @@ class _AnimatedBannerState extends State<_AnimatedBanner>
             direction: DismissDirection.horizontal,
             onDismissed: (_) => widget.onDismiss(),
             child: Material(
-              elevation: 8,
-              shadowColor: Colors.black.withValues(alpha: 0.3),
+              elevation: 10,
+              shadowColor: const Color(0xFF526AA0).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppSizes.radiusBanner),
-              color: Colors.white,
+              color: theme.colorScheme.surface.withValues(alpha: 0.96),
               child: InkWell(
                 borderRadius: BorderRadius.circular(AppSizes.radiusBanner),
                 onTap: _dismiss,
-                child: Row(
-                  children: [
-                    // Color strip
-                    Container(
-                      width: AppSizes.bannerStripWidth,
-                      height: AppSizes.bannerStripHeight,
-                      decoration: BoxDecoration(
-                        color: stripColor,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(AppSizes.radiusBanner),
-                          bottomLeft: Radius.circular(AppSizes.radiusBanner),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppSizes.radiusBanner),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                  ),
+                  child: Row(
+                    children: [
+                      // Color strip
+                      Container(
+                        width: AppSizes.bannerStripWidth,
+                        height: AppSizes.bannerStripHeight,
+                        decoration: BoxDecoration(
+                          color: stripColor,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(AppSizes.radiusBanner),
+                            bottomLeft: Radius.circular(AppSizes.radiusBanner),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: AppSizes.gap12),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: AppSizes.paddingMd,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                _MethodBadge(t.method),
-                                const SizedBox(width: AppSizes.gap6),
-                                _StatusLabel(t.statusCode, t.error, stripColor),
-                                const Spacer(),
+                      const SizedBox(width: AppSizes.gap12),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSizes.paddingMd,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  _MethodBadge(t.method),
+                                  const SizedBox(width: AppSizes.gap6),
+                                  _StatusLabel(
+                                    t.statusCode,
+                                    t.error,
+                                    stripColor,
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    _fmtDuration(t.duration),
+                                    style: TextStyle(
+                                      fontSize: AppSizes.textSm,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSizes.gap8),
+                                ],
+                              ),
+                              const SizedBox(height: AppSizes.gap4),
+                              Text(
+                                t.uri.toString(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: AppSizes.textSmPlus,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              if (widget.extra > 0) ...[
+                                const SizedBox(height: AppSizes.gap2),
                                 Text(
-                                  _fmtDuration(t.duration),
-                                  style: const TextStyle(
+                                  '+${widget.extra} more request${widget.extra == 1 ? '' : 's'}',
+                                style: TextStyle(
                                     fontSize: AppSizes.textSm,
-                                    color: Colors.black54,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontStyle: FontStyle.italic,
                                   ),
                                 ),
-                                const SizedBox(width: AppSizes.gap8),
                               ],
-                            ),
-                            const SizedBox(height: AppSizes.gap4),
-                            Text(
-                              t.uri.toString(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: AppSizes.textSmPlus,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            if (widget.extra > 0) ...[
-                              const SizedBox(height: AppSizes.gap2),
-                              Text(
-                                '+${widget.extra} more request${widget.extra == 1 ? '' : 's'}',
-                                style: const TextStyle(
-                                  fontSize: AppSizes.textSm,
-                                  color: Colors.black54,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                    // Details button
-                    TextButton(
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        widget.onDetails();
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: stripColor,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSizes.paddingMd,
-                          vertical: AppSizes.paddingSm,
+                      // Details button
+                      TextButton(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          widget.onDetails();
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: stripColor,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSizes.paddingMd,
+                            vertical: AppSizes.paddingSm,
+                          ),
+                          minimumSize: Size.zero,
                         ),
-                        minimumSize: Size.zero,
-                      ),
-                      child: const Text(
-                        AppStrings.details,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: AppSizes.textBase,
+                        child: const Text(
+                          AppStrings.details,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppSizes.textBase,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: AppSizes.gap4),
-                  ],
+                      const SizedBox(width: AppSizes.gap4),
+                    ],
+                  ),
                 ),
               ),
             ),
