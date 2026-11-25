@@ -57,6 +57,8 @@ class ChuckerFlutterPlus {
     bool? enableOnRelease,
     bool enableNotifications = false,
     String notificationChannelName = 'Network inspector',
+    String androidNotificationIcon =
+        ChuckerNotificationService.defaultAndroidIcon,
     Set<String> redactHeaders = const {'authorization', 'cookie', 'set-cookie'},
     GlobalKey<NavigatorState>? navigatorKey,
     void Function(String? payload)? onUnrecognizedNotificationPayload,
@@ -88,7 +90,10 @@ class ChuckerFlutterPlus {
         },
         onUnrecognizedPayload: onUnrecognizedNotificationPayload,
       );
-      await _notifications!.initialize(channelName: notificationChannelName);
+      await _notifications!.initialize(
+        channelName: notificationChannelName,
+        androidIcon: androidNotificationIcon,
+      );
     }
   }
 
@@ -263,6 +268,7 @@ class Inspector {
       maximumEntries: config.maximumEntries,
       enableOnRelease: config.enableOnRelease,
       enableNotifications: config.showStatusBarNotification,
+      androidNotificationIcon: config.androidNotificationIcon,
       navigatorKey: navigatorKey,
       onUnrecognizedNotificationPayload: onUnrecognizedNotificationPayload,
     );
@@ -275,6 +281,7 @@ class Inspector {
       await ChuckerFlutterPlus.initialize(
         maximumEntries: config.maximumEntries,
         enableNotifications: true,
+        androidNotificationIcon: config.androidNotificationIcon,
       );
     }
     await ChuckerFlutterPlus.settings.save(

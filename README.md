@@ -178,8 +178,25 @@ permission during initialization:
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
-Android notifications use the host app's `ic_launcher` icon. iOS
-and macOS use the app icon and request notification permission during
+Android notifications default to `@mipmap/ic_launcher`, which resolves the
+standard Flutter launcher icon under
+`android/app/src/main/res/mipmap-*/ic_launcher.png`. To use a custom icon,
+add a drawable resource under `android/app/src/main/res/drawable/` (for example
+`ic_notification.xml` or `.png`) and pass its resource name without extension,
+or reference a mipmap resource with `@mipmap/<name>`:
+
+```dart
+await ChuckerFlutterPlus.initialize(
+  enableNotifications: true,
+  androidNotificationIcon: 'ic_notification',
+);
+```
+
+You can also configure `androidNotificationIcon` on `InspectorConfig`. If the
+configured icon resource is missing on Android, initialization logs a warning
+and disables status bar notifications gracefully instead of throwing.
+
+iOS and macOS use the app icon and request notification permission during
 initialization. Linux and Windows use their desktop notification services.
 Notification tap routing depends on the platform notification service and may
 not be available on every desktop environment.
