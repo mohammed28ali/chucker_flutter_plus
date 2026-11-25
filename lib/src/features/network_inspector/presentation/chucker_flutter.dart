@@ -56,6 +56,12 @@ class ChuckerFlutterPlus {
     Duration? retention,
     bool? enableOnRelease,
     bool enableNotifications = false,
+    bool showInAppNotification = true,
+    bool? showStatusBarNotification,
+    bool statusBarWhileForeground = false,
+    Duration inAppNotificationDuration = const Duration(seconds: 3),
+    BannerPosition inAppNotificationPosition = BannerPosition.top,
+    bool notifyOnlyOnError = false,
     String notificationChannelName = 'Network inspector',
     String androidNotificationIcon =
         ChuckerNotificationService.defaultAndroidIcon,
@@ -81,9 +87,11 @@ class ChuckerFlutterPlus {
         when context.mounted) {
       _banner.bind(context);
     }
-    showNotification = enableNotifications;
+    final showSystemNotifications =
+        showStatusBarNotification ?? enableNotifications;
+    showNotification = showSystemNotifications;
     ChuckerFlutterPlus.notificationChannelName = notificationChannelName;
-    if (enableNotifications) {
+    if (showSystemNotifications) {
       _notifications = ChuckerNotificationService(
         onRequestSelected: (id) {
           _openNotificationRequest(id, effectiveNavKey);
@@ -95,6 +103,17 @@ class ChuckerFlutterPlus {
         androidIcon: androidNotificationIcon,
       );
     }
+    await settings.save(
+      InspectorSettings(
+        inAppBanner: showInAppNotification,
+        systemNotifications: showSystemNotifications,
+        statusBarWhileForeground: statusBarWhileForeground,
+        bannerDuration: inAppNotificationDuration,
+        bannerPosition: inAppNotificationPosition,
+        onlyErrors: notifyOnlyOnError,
+        maximumEntries: maximumEntries,
+      ),
+    );
   }
 
   static void configure({

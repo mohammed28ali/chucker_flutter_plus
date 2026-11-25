@@ -16,21 +16,45 @@ flutter pub add chucker_flutter_plus
 
 ## Capture requests
 
-Initialize the inspector once before `runApp`. Add its navigator observer to
-your `MaterialApp` so in-app banners can attach to the app overlay and
-notification taps can open the selected request.
+Initialize the inspector and console logger once before `runApp`. Add its
+navigator observer to your `MaterialApp` so in-app banners can attach to the
+app overlay and notification taps can open the selected request.
 
 ```dart
 import 'package:chucker_flutter_plus/chucker_flutter_plus.dart';
+import 'package:chucker_flutter_plus/network_logger_dio.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await ChuckerFlutterPlus.initialize(
+    enableNotifications: true,
+    showInAppNotification: true,
+    showStatusBarNotification: true,
+    statusBarWhileForeground: false,
+    inAppNotificationDuration: Duration(seconds: 3),
+    inAppNotificationPosition: BannerPosition.top,
+    notifyOnlyOnError: false,
     maximumEntries: 200,
-    retention: const Duration(days: 7),
+    enableOnRelease: true,
+  );
+
+  final logger = NetworkLogger(
+    config: const NetworkLogConfig(
+      enableOnRelease: true,
+      logRequestHeaders: true,
+      logRequestBody: true,
+      logResponseHeaders: true,
+      logResponseBody: true,
+      logErrorBody: true,
+      logCurlCommand: true,
+      maxBodyLength: 4000,
+      slowRequestThreshold: Duration(seconds: 3),
+    ),
+    printer: debugPrint,
   );
 
   runApp(const MyApp());
@@ -46,7 +70,9 @@ class MyApp extends StatelessWidget {
   );
 }
 
-final dio = Dio()..interceptors.add(ChuckerDioInterceptor());
+final dio = Dio()
+  ..interceptors.add(ChuckerDioInterceptor())
+  ..interceptors.add(DioNetworkLoggerInterceptor(logger: logger));
 ```
 
 For `package:http`, wrap a client:
@@ -144,31 +170,9 @@ size remains available.
 
 ## Notifications
 
-In-app banners appear while the app is in the foreground. Enable system
-notifications during initialization if you also want OS notifications when
-the app is in the background:
-
-```dart
-await ChuckerFlutterPlus.initialize(
-  enableNotifications: true,
-);
-```
-
-For more control, configure both notification types with `Inspector`:
-
-```dart
-await Inspector.init(
-  config: const InspectorConfig(
-    showInAppNotification: true,
-    showStatusBarNotification: true,
-    statusBarWhileForeground: false,
-    inAppNotificationDuration: Duration(seconds: 3),
-    inAppNotificationPosition: BannerPosition.top,
-    notifyOnlyOnError: false,
-    maximumEntries: 200,
-  ),
-);
-```
+In-app banners appear while the app is in the foreground. The setup above
+enables OS notifications for background requests and configures both delivery
+types. Set `showStatusBarNotification` to `false` to disable OS notifications.
 
 On Android 13 and later, add the notification permission to the host app's
 `android/app/src/main/AndroidManifest.xml`; the package also requests runtime
