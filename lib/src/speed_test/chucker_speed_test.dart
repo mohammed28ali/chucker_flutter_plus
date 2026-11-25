@@ -214,6 +214,7 @@ class _SpeedTestPageState extends State<_SpeedTestPage> {
       _TestPhase.latency => _ping,
       _TestPhase.download => _liveSpeed ?? _download,
       _TestPhase.upload => _liveSpeed ?? _upload,
+      _TestPhase.done => _upload,
       _ => null,
     };
     final currentUnit = _phase == _TestPhase.latency ? 'ms' : 'Mbps';
@@ -486,19 +487,35 @@ class _SpeedHero extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        speed == null ? '—' : speed.toStringAsFixed(1),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 38,
-                          height: 1,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -1.5,
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 450),
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: Tween<double>(
+                              begin: .85,
+                              end: 1,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        ),
+                        child: Text(
+                          speed == null ? '—' : speed.toStringAsFixed(1),
+                          key: ValueKey(speed),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 38,
+                            height: 1,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -1.5,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        currentUnit,
+                        phase == _TestPhase.done
+                            ? 'UPLOAD • Mbps'
+                            : currentUnit,
                         style: const TextStyle(
                           color: Color(0xFF99F6E4),
                           fontSize: 12,
