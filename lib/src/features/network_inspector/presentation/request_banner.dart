@@ -15,6 +15,12 @@ class RequestBannerController {
   OverlayEntry? _entry;
   Timer? _timer;
   int _pending = 0;
+  ({
+    NetworkTransaction transaction,
+    InspectorSettings settings,
+    VoidCallback details,
+  })?
+  _queued;
   BuildContext? get context => _context;
 
   void bind(BuildContext context, {OverlayState? overlay}) {
@@ -28,6 +34,11 @@ class RequestBannerController {
       _overlay!.insert(entry);
       _entryOverlay = _overlay;
     }
+    final queued = _queued;
+    if (_overlay != null && queued != null && _entry == null) {
+      _queued = null;
+      show(queued.transaction, queued.settings, queued.details);
+    }
   }
 
   void show(
@@ -35,7 +46,14 @@ class RequestBannerController {
     InspectorSettings settings,
     VoidCallback details,
   ) {
-    if (_overlay == null) return;
+    if (_overlay == null) {
+      _queued = (
+        transaction: transaction,
+        settings: settings,
+        details: details,
+      );
+      return;
+    }
     if (_entry != null) {
       _pending++;
       _entry!.markNeedsBuild();
@@ -61,6 +79,7 @@ class RequestBannerController {
     _entry = null;
     _entryOverlay = null;
     _pending = 0;
+    _queued = null;
   }
 }
 

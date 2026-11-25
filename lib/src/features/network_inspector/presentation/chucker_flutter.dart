@@ -231,14 +231,19 @@ class ChuckerFlutterPlus {
   static Future<void> record(NetworkTransaction transaction) async {
     if (!isEnabled) return;
     await _dependencies.recordTransaction(transaction);
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    // Before the first frame Flutter may report `inactive` (or null). Requests
+    // during startup are still in-app activity and should use the banner.
     final foreground =
-        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+        lifecycleState != AppLifecycleState.paused &&
+        lifecycleState != AppLifecycleState.detached;
     final canShow = !settings.value.onlyErrors || !transaction.succeeded;
-    final delivery = notificationDelivery(
-      isForeground: foreground,
-      settings: settings.value,
-    );
-    if (delivery == NotificationDelivery.inApp && canShow) {
+    final currentSettings = settings.value;
+    final showInAppBanner = foreground && currentSettings.inAppBanner;
+    final showStatusBarNotification =
+        currentSettings.systemNotifications &&
+        (!foreground || currentSettings.statusBarWhileForeground);
+    if (showInAppBanner && canShow) {
       if (_banner.context == null || !_banner.context!.mounted) {
         if (navigatorKey.currentContext case final ctx? when ctx.mounted) {
           _banner.bind(ctx);
@@ -250,9 +255,7 @@ class ChuckerFlutterPlus {
         if (context != null) showInspector(context, transaction.id);
       });
     }
-    if (delivery == NotificationDelivery.statusBar &&
-        showNotification &&
-        canShow) {
+    if (showStatusBarNotification && showNotification && canShow) {
       await _notifications?.show(
         transaction,
         channelName: notificationChannelName,
