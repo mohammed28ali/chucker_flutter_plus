@@ -161,12 +161,8 @@ class ChuckerFlutterPlus {
       throw StateError('showInspector requires a context below an Overlay.');
     }
     _banner.bind(ctx);
-    // Capture system brightness at show-time; the inspector has its own theme.
-    final brightness =
-        MediaQuery.maybePlatformBrightnessOf(ctx) ?? Brightness.light;
     _entry = OverlayEntry(
       builder: (_) => _IsolatedInspector(
-        brightness: brightness,
         dependencies: _dependencies,
         requestId: requestId,
       ),
@@ -330,11 +326,9 @@ class Inspector {
 /// so the inspector never inherits or modifies the host app's theme.
 class _IsolatedInspector extends StatefulWidget {
   const _IsolatedInspector({
-    required this.brightness,
     required this.dependencies,
     this.requestId,
   });
-  final Brightness brightness;
   final ChuckerDependencies dependencies;
   final String? requestId;
 
@@ -343,20 +337,9 @@ class _IsolatedInspector extends StatefulWidget {
 }
 
 class _IsolatedInspectorState extends State<_IsolatedInspector> {
-  late Brightness _brightness;
-
-  @override
-  void initState() {
-    super.initState();
-    _brightness = widget.brightness;
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Re-read system brightness so a toggle in Settings works immediately
-    final theme = _brightness == Brightness.dark
-        ? InspectorTheme.dark()
-        : InspectorTheme.light();
+    final theme = InspectorTheme.light();
     return Theme(
       data: theme,
       child: Material(

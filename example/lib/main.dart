@@ -23,7 +23,7 @@ Future<void> main() async {
     enableNotifications: true,
     showInAppNotification: true,
     showStatusBarNotification: true,
-    statusBarWhileForeground: false,
+    statusBarWhileForeground: true,
     inAppNotificationDuration: const Duration(seconds: 3),
     inAppNotificationPosition: BannerPosition.top,
     notifyOnlyOnError: false,
